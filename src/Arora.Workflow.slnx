@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="../tests/Arora.Workflow.IntegrationTests/Arora.Workflow.IntegrationTests.csproj" />
+  <Project Path="../tests/Arora.Workflow.UnitTests/Arora.Workflow.UnitTests.csproj" />
+  <Project Path="Arora.Workflow.EntityFramework/Arora.Workflow.EntityFramework.csproj" />
+  <Project Path="Arora.Workflow.Testing/Arora.Workflow.Testing.csproj" />
+  <Project Path="Arora.Workflow/Arora.Workflow.csproj" />
+</Solution>
