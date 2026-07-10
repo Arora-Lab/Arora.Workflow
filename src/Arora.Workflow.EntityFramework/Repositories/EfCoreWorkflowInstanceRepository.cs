@@ -1,7 +1,10 @@
 using Arora.Workflow.Application.Interfaces;
 using Arora.Workflow.Domain.Aggregates;
 using Arora.Workflow.Domain.ValueObjects;
+using Arora.Workflow.Domain.Events;
+using Arora.Workflow.EntityFramework.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace Arora.Workflow.EntityFramework.Repositories;
 
@@ -89,8 +92,91 @@ internal sealed class EfCoreUnitOfWork : IUnitOfWork
     }
 
     /// <inheritdoc />
-    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        return _db.SaveChangesAsync(cancellationToken);
+        var workflowInstances = _db.ChangeTracker.Entries<WorkflowInstance>()
+            .Where(x => x.Entity.DomainEvents.Any())
+            .Select(x => x.Entity)
+            .ToList();
+
+        var domainEvents = workflowInstances.SelectMany(x => x.DomainEvents).ToList();
+
+        // Project events into History entities attached to the current DbContext.
+        // This ensures the audit trail is saved atomically with the state change.
+        foreach (var domainEvent in domainEvents)
+        {
+            // We ensure we only add history entities once per logical operation.
+            // If EF Core execution strategy retries SaveChangesAsync, this block runs again,
+            // but we can check if it's already added to avoid duplicates.
+            // Actually, because we add them to the _db, if they are already in the change tracker
+            // as Added, adding them again would either be a no-op or throw. Let's just 
+            // check if there's already a history record for this exact event instance by its OccurredAt.
+            // Wait, even simpler: just create the entities and check if they are already tracked.
+            
+            WorkflowHistoryEntity? historyEntity = null;
+
+            switch (domainEvent)
+            {
+                case WorkflowStarted e:
+                    historyEntity = new WorkflowHistoryEntity
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = Guid.Empty, // TenantId is handled by a tenant context typically, but for now we'll set Empty or resolve it.
+                        WorkflowInstanceId = e.WorkflowInstanceId,
+                        EventType = "Started",
+                        ActorId = e.InitiatedBy?.Id,
+                        ActorName = e.InitiatedBy?.DisplayName,
+                        Comment = JsonSerializer.Serialize(new { e.WorkflowName, e.CorrelationId }),
+                        OccurredAt = e.OccurredAt
+                    };
+                    break;
+                case WorkflowTransitioned e:
+                    historyEntity = new WorkflowHistoryEntity
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = Guid.Empty,
+                        WorkflowInstanceId = e.WorkflowInstanceId,
+                        EventType = "Transitioned",
+                        ActorId = e.Actor?.Id,
+                        ActorName = e.Actor?.DisplayName,
+                        FromState = e.FromState,
+                        ToState = e.ToState,
+                        StepName = e.StepName,
+                        OccurredAt = e.OccurredAt
+                    };
+                    break;
+                case WorkflowCancelled e:
+                    historyEntity = new WorkflowHistoryEntity
+                    {
+                        Id = Guid.NewGuid(),
+                        TenantId = Guid.Empty,
+                        WorkflowInstanceId = e.WorkflowInstanceId,
+                        EventType = "Cancelled",
+                        ActorId = e.CancelledBy?.Id,
+                        ActorName = e.CancelledBy?.DisplayName,
+                        Comment = JsonSerializer.Serialize(new { e.Reason }),
+                        OccurredAt = e.OccurredAt
+                    };
+                    break;
+            }
+
+            if (historyEntity != null)
+            {
+                // Prevent duplicate tracking if EF retries this SaveChangesAsync call.
+                bool alreadyTracked = _db.ChangeTracker.Entries<WorkflowHistoryEntity>()
+                    .Any(x => x.Entity.WorkflowInstanceId == historyEntity.WorkflowInstanceId &&
+                              x.Entity.OccurredAt == historyEntity.OccurredAt &&
+                              x.Entity.EventType == historyEntity.EventType);
+
+                if (!alreadyTracked)
+                {
+                    _db.Set<WorkflowHistoryEntity>().Add(historyEntity);
+                }
+            }
+        }
+
+        // We DO NOT clear the domain events here.
+        // WorkflowService will read them to publish MediatR notifications AFTER this commit succeeds.
+        return await _db.SaveChangesAsync(cancellationToken);
     }
 }

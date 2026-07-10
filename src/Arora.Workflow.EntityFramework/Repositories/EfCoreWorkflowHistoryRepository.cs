@@ -16,22 +16,7 @@ internal sealed class EfCoreWorkflowHistoryRepository : IWorkflowHistoryReposito
         _db = provider.Context;
     }
 
-    public async Task AddAsync(WorkflowHistory history, CancellationToken cancellationToken = default)
-    {
-        // Default TenantId for now (could be passed via context)
-        var entity = new WorkflowHistoryEntity
-        {
-            Id = history.Id,
-            TenantId = Guid.Empty, // TODO: Tenant resolution
-            WorkflowInstanceId = history.WorkflowInstanceId,
-            EventType = history.Action,
-            ActorId = history.Actor?.Id,
-            ActorName = history.Actor?.DisplayName,
-            Comment = history.DetailsJson,
-            OccurredAt = history.Timestamp
-        };
-        await _db.Set<WorkflowHistoryEntity>().AddAsync(entity, cancellationToken);
-    }
+
 
     public async Task<IReadOnlyList<WorkflowHistory>> GetByInstanceIdAsync(Guid instanceId, CancellationToken cancellationToken = default)
     {

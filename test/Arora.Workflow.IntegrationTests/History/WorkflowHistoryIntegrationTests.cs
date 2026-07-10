@@ -3,7 +3,6 @@ using Arora.Workflow.Domain.Aggregates;
 using Arora.Workflow.Domain.Entities;
 using Arora.Workflow.Domain.ValueObjects;
 using Arora.Workflow.EntityFramework.Context;
-using Arora.Workflow.EntityFramework.Interceptors;
 using Arora.Workflow.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +27,7 @@ public class WorkflowHistoryIntegrationTests : IAsyncLifetime
     }
 
     private ServiceProvider _serviceProvider = null!;
+    private string _dbName = null!;
 
     public Task InitializeAsync()
     {
@@ -41,12 +41,10 @@ public class WorkflowHistoryIntegrationTests : IAsyncLifetime
         builder.UseEntityFramework<TestDbContext>();
 
         // DbContext
-        var dbName = Guid.NewGuid().ToString();
+        _dbName = Guid.NewGuid().ToString();
         services.AddDbContext<TestDbContext>((sp, options) =>
         {
-            
-            options.UseInMemoryDatabase(dbName).AddInterceptors(sp.GetRequiredService<Arora.Workflow.EntityFramework.Interceptors.DomainEventDispatcherInterceptor>())
-                   ;
+            options.UseInMemoryDatabase(_dbName);
         });
 
         _serviceProvider = services.BuildServiceProvider();
@@ -59,11 +57,10 @@ public class WorkflowHistoryIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task StartingWorkflow_WritesHistoryRecord()
+    public async Task SaveChangesAsync_ProjectsDomainEventsToHistory_Atomically()
     {
         // Arrange
         using var scope = _serviceProvider.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<TestDbContext>();
         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var historyRepo = scope.ServiceProvider.GetRequiredService<IWorkflowHistoryRepository>();
         var instanceRepo = scope.ServiceProvider.GetRequiredService<IWorkflowInstanceRepository>();
@@ -82,7 +79,9 @@ public class WorkflowHistoryIntegrationTests : IAsyncLifetime
 
         // Act
         await instanceRepo.AddAsync(instance);
-        await uow.SaveChangesAsync(); // This should trigger interceptor -> mediatR -> handler -> insert history
+        
+        // This should project the events to WorkflowHistoryEntity inline without clearing them
+        await uow.SaveChangesAsync(); 
 
         // Assert
         var histories = await historyRepo.GetByInstanceIdAsync(instance.Id);
@@ -90,5 +89,81 @@ public class WorkflowHistoryIntegrationTests : IAsyncLifetime
         var record = histories[0];
         Assert.Equal("Started", record.Action);
         Assert.Equal("tester", record.Actor?.Id);
+
+        // Verify the domain event was NOT cleared (so WorkflowService can publish it later)
+        Assert.Single(instance.DomainEvents);
+    }
+
+    [Fact]
+    public async Task SaveChangesAsync_MultipleCalls_DoesNotCreateDuplicateHistory()
+    {
+        // Arrange
+        using var scope = _serviceProvider.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var historyRepo = scope.ServiceProvider.GetRequiredService<IWorkflowHistoryRepository>();
+        var instanceRepo = scope.ServiceProvider.GetRequiredService<IWorkflowInstanceRepository>();
+
+        var instance = WorkflowInstance.Start(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            1,
+            "HistoryTest",
+            "CORR-01",
+            "IDEMP-01",
+            new WorkflowState("Initial", WorkflowStateType.Initial),
+            null,
+            new ActorInfo("tester", "Tester"),
+            DateTimeOffset.UtcNow);
+
+        await instanceRepo.AddAsync(instance);
+        
+        // Act - Simulate an EF Core Execution Strategy retry
+        await uow.SaveChangesAsync(); 
+        await uow.SaveChangesAsync(); // Called again, events are still on the aggregate!
+
+        // Assert - Should only have ONE history record because it deduplicates by OccurredAt
+        var histories = await historyRepo.GetByInstanceIdAsync(instance.Id);
+        Assert.Single(histories);
+    }
+
+    [Fact]
+    public async Task MultipleEvents_CreateExactlyOneHistoryRowEach()
+    {
+        // Arrange
+        using var scope = _serviceProvider.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var historyRepo = scope.ServiceProvider.GetRequiredService<IWorkflowHistoryRepository>();
+        var instanceRepo = scope.ServiceProvider.GetRequiredService<IWorkflowInstanceRepository>();
+
+        var instance = WorkflowInstance.Start(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            1,
+            "HistoryTest",
+            "CORR-01",
+            "IDEMP-01",
+            new WorkflowState("Initial", WorkflowStateType.Initial),
+            null,
+            new ActorInfo("tester", "Tester"),
+            DateTimeOffset.UtcNow);
+
+        instance.TransitionTo(
+            new WorkflowState("Pending", WorkflowStateType.PendingApproval),
+            "Submitted",
+            DateTimeOffset.UtcNow.AddMinutes(1),
+            new ActorInfo("actor", "Actor"));
+
+        await instanceRepo.AddAsync(instance);
+        
+        // Act
+        await uow.SaveChangesAsync(); 
+
+        // Assert
+        var histories = await historyRepo.GetByInstanceIdAsync(instance.Id);
+        Assert.Equal(2, histories.Count);
+        
+        // Assert Ordering
+        Assert.Equal("Started", histories[0].Action);
+        Assert.Equal("Transitioned", histories[1].Action);
     }
 }

@@ -16,7 +16,7 @@ public static class AroraWorkflowEntityFrameworkExtensions
         where TDbContext : DbContext
     {
         builder.Services.AddScoped(sp => new Arora.Workflow.EntityFramework.DbContextProvider(sp.GetRequiredService<TDbContext>()));
-        builder.Services.AddScoped<Arora.Workflow.EntityFramework.Interceptors.DomainEventDispatcherInterceptor>();
+
 
         builder.Services.AddScoped<IWorkflowDefinitionRepository, EfCoreWorkflowDefinitionRepository>();
         builder.Services.AddScoped<IWorkflowInstanceRepository, EfCoreWorkflowInstanceRepository>();

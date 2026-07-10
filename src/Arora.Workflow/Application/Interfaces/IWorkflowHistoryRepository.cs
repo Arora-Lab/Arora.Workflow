@@ -8,11 +8,6 @@ namespace Arora.Workflow.Application.Interfaces;
 public interface IWorkflowHistoryRepository
 {
     /// <summary>
-    /// Appends a new history record.
-    /// </summary>
-    Task AddAsync(WorkflowHistory history, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Retrieves all history records for a specific workflow instance, ordered by timestamp ascending.
     /// </summary>
     Task<IReadOnlyList<WorkflowHistory>> GetByInstanceIdAsync(Guid instanceId, CancellationToken cancellationToken = default);
