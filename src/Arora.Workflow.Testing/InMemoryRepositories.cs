@@ -1,3 +1,4 @@
+using Arora.Workflow.Domain.Entities;
 using Arora.Workflow.Application.Interfaces;
 using Arora.Workflow.Domain.Aggregates;
 
@@ -177,5 +178,23 @@ public sealed class InMemoryApprovalRepository : IApprovalRepository
             .FirstOrDefault();
             
         return Task.FromResult(approval);
+    }
+}
+
+public sealed class InMemoryWorkflowHistoryRepository : IWorkflowHistoryRepository
+{
+    private readonly List<WorkflowHistory> _store = new();
+    public Task AddAsync(WorkflowHistory history, CancellationToken cancellationToken = default)
+    {
+        _store.Add(history);
+        return Task.CompletedTask;
+    }
+    public Task<IReadOnlyList<WorkflowHistory>> GetByInstanceIdAsync(Guid instanceId, CancellationToken cancellationToken = default)
+    {
+        var result = _store
+            .Where(h => h.WorkflowInstanceId == instanceId)
+            .OrderBy(h => h.Timestamp)
+            .ToList();
+        return Task.FromResult<IReadOnlyList<WorkflowHistory>>(result);
     }
 }

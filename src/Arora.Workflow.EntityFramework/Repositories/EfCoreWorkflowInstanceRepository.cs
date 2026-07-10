@@ -12,9 +12,9 @@ internal sealed class EfCoreWorkflowInstanceRepository : IWorkflowInstanceReposi
 {
     private readonly DbContext _db;
 
-    public EfCoreWorkflowInstanceRepository(DbContext db)
+    public EfCoreWorkflowInstanceRepository(DbContextProvider provider)
     {
-        _db = db;
+        _db = provider.Context;
     }
 
     /// <inheritdoc />
@@ -83,9 +83,9 @@ internal sealed class EfCoreUnitOfWork : IUnitOfWork
 {
     private readonly DbContext _db;
 
-    public EfCoreUnitOfWork(DbContext db)
+    public EfCoreUnitOfWork(DbContextProvider provider)
     {
-        _db = db;
+        _db = provider.Context;
     }
 
     /// <inheritdoc />

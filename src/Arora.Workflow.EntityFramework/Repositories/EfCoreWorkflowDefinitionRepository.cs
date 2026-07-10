@@ -11,9 +11,9 @@ internal sealed class EfCoreWorkflowDefinitionRepository : IWorkflowDefinitionRe
 {
     private readonly DbContext _db;
 
-    public EfCoreWorkflowDefinitionRepository(DbContext db)
+    public EfCoreWorkflowDefinitionRepository(DbContextProvider provider)
     {
-        _db = db;
+        _db = provider.Context;
     }
 
     /// <inheritdoc />

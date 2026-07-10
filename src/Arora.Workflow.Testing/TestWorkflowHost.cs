@@ -63,6 +63,7 @@ public sealed class TestWorkflowHost
     {
         // Build a minimal DI container for MediatR (used for event publishing)
         var services = new ServiceCollection();
+        services.AddScoped<IWorkflowHistoryRepository>(_ => new InMemoryWorkflowHistoryRepository());
         services.AddMediatR(cfg =>
             cfg.RegisterServicesFromAssembly(typeof(AroraWorkflowBuilder).Assembly));
         var serviceProvider = services.BuildServiceProvider();

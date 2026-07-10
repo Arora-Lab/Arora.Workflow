@@ -11,9 +11,9 @@ internal sealed class EfCoreApprovalRepository : IApprovalRepository
 {
     private readonly DbContext _db;
 
-    public EfCoreApprovalRepository(DbContext db)
+    public EfCoreApprovalRepository(DbContextProvider provider)
     {
-        _db = db;
+        _db = provider.Context;
     }
 
     /// <inheritdoc />
