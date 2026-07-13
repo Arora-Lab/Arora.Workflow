@@ -46,12 +46,13 @@ using (var scope = app.Services.CreateScope())
     if (existing == null)
     {
         var provider = new InvoiceApprovalWorkflow();
+        var blueprint = provider.GetDefinition();
         var def = Arora.Workflow.Domain.Aggregates.WorkflowDefinition.Create(
             tenantContext.TenantId,
-            "invoice-approval",
-            1,
-            "Basic Invoice Approval Process",
-            provider.GetDefinitionJson(),
+            blueprint.Name,
+            blueprint.Version,
+            blueprint.Description,
+            blueprint.Json,
             "system",
             DateTimeOffset.UtcNow);
         

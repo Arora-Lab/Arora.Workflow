@@ -1,23 +1,25 @@
 using Arora.Workflow.Application.Builder;
-using Arora.Workflow.Application.Interfaces;
 
 namespace Arora.Workflow.Sample.InvoiceApp.Workflows;
 
 public class InvoiceApprovalWorkflow
 {
-    public string GetDefinitionJson()
+    public (string Name, int Version, string Description, string Json) GetDefinition()
     {
-        var builder = new WorkflowDefinitionBuilder();
-        
-        builder
+        return WorkflowDefinitionBuilder.Create("invoice-approval")
+            .Description("Basic Invoice Approval Process")
+            .Version(1)
             .WithStep<Steps.ValidateInvoiceStep>("validate")
                 .TransitionsTo("manager-approval")
-            .WithApproval("manager-approval", "tester")
+            .WithApproval("manager-approval")
+                .AssignedTo("tester")
                 .OnApprove("process-payment")
                 .OnReject("send-rejection")
+                .EndApproval()
             .WithStep<Steps.ProcessPaymentStep>("process-payment")
-            .WithStep<Steps.SendRejectionStep>("send-rejection");
-
-        return builder.BuildJson();
+                .EndStep()
+            .WithStep<Steps.SendRejectionStep>("send-rejection")
+                .EndStep()
+            .Build();
     }
 }
