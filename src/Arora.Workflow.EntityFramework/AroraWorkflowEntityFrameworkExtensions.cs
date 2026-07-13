@@ -25,6 +25,8 @@ public static class AroraWorkflowEntityFrameworkExtensions
         builder.Services.AddScoped<IWorkItemRepository, EfCoreWorkItemRepository>();
         builder.Services.AddScoped<IUnitOfWork, EfCoreUnitOfWork>();
 
+        builder.Services.AddScoped<Arora.Workflow.Management.IWorkflowQueryService, Arora.Workflow.EntityFramework.Queries.EfCoreWorkflowQueryService>();
+
         return builder;
     }
 }

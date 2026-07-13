@@ -1,0 +1,7 @@
+{
+  "name": "arora-workflow-frontend",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ]
+}

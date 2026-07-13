@@ -6,6 +6,7 @@ using Arora.Workflow.Application.Interfaces;
 using Arora.Workflow.Domain.ValueObjects;
 using Arora.Workflow.Domain.Aggregates;
 using System.Text.Json.Nodes;
+using Arora.Workflow.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -133,12 +134,14 @@ approvalApi.MapPost("/{id}/approve", async (Guid id, IApprovalService approvalSe
     await approvalService.ApproveAsync(id, new ActorInfo("tester", "Tester"), "Looks good", ct);
     return Results.Ok();
 });
-
 approvalApi.MapPost("/{id}/reject", async (Guid id, IApprovalService approvalService, CancellationToken ct) =>
 {
     await approvalService.RejectAsync(id, new ActorInfo("tester", "Tester"), "Amount too high", ct);
     return Results.Ok();
 });
+
+// Map Management API
+app.MapAroraWorkflowApi();
 
 app.Run();
 

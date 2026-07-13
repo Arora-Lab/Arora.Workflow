@@ -16,6 +16,8 @@
     <ProjectReference Include="..\Arora.Workflow\Arora.Workflow.csproj" />
     <ProjectReference Include="..\Arora.Workflow.EntityFramework\Arora.Workflow.EntityFramework.csproj" />
     <ProjectReference Include="..\Arora.Workflow.BackgroundProcessing\Arora.Workflow.BackgroundProcessing.csproj" />
+    <ProjectReference Include="..\Arora.Workflow.AspNetCore\Arora.Workflow.AspNetCore.csproj" />
+    <ProjectReference Include="..\Arora.Workflow.Management\Arora.Workflow.Management.csproj" />
   </ItemGroup>
 
 </Project>
