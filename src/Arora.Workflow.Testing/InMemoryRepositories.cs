@@ -209,3 +209,58 @@ public sealed class InMemoryWorkflowHistoryRepository : IWorkflowHistoryReposito
         return Task.FromResult<IReadOnlyList<WorkflowHistory>>(result);
     }
 }
+
+/// <summary>
+/// An in-memory <see cref="IWorkItemRepository"/> for unit tests.
+/// </summary>
+public sealed class InMemoryWorkItemRepository : IWorkItemRepository
+{
+    private readonly List<WorkItem> _store = new();
+
+    public IReadOnlyCollection<WorkItem> All => _store.AsReadOnly();
+
+    public Task AddAsync(WorkItem workItem, CancellationToken cancellationToken = default)
+    {
+        _store.Add(workItem);
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<WorkItem>> ClaimWorkItemsAsync(string workerId, int batchSize, TimeSpan leaseDuration, CancellationToken cancellationToken = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var toClaim = _store
+            .Where(w => (w.Status == WorkItemStatus.Pending && w.AvailableAt <= now) || 
+                        (w.Status == WorkItemStatus.Processing && w.LockedUntil != null && w.LockedUntil < now))
+            .OrderBy(w => w.AvailableAt)
+            .Take(batchSize)
+            .ToList();
+
+        foreach (var item in toClaim)
+        {
+            item.Claim(workerId, leaseDuration);
+        }
+
+        return Task.FromResult<IReadOnlyList<WorkItem>>((IReadOnlyList<WorkItem>)toClaim);
+    }
+
+    public Task CompleteWorkItemAsync(Guid workItemId, CancellationToken cancellationToken = default)
+    {
+        var item = _store.FirstOrDefault(w => w.Id == workItemId);
+        if (item != null) item.Complete();
+        return Task.CompletedTask;
+    }
+
+    public Task FailWorkItemTransientlyAsync(Guid workItemId, string error, DateTimeOffset nextAvailableAt, CancellationToken cancellationToken = default)
+    {
+        var item = _store.FirstOrDefault(w => w.Id == workItemId);
+        if (item != null) item.FailTransiently(error, nextAvailableAt);
+        return Task.CompletedTask;
+    }
+
+    public Task FailWorkItemPermanentlyAsync(Guid workItemId, string error, CancellationToken cancellationToken = default)
+    {
+        var item = _store.FirstOrDefault(w => w.Id == workItemId);
+        if (item != null) item.FailPermanently(error);
+        return Task.CompletedTask;
+    }
+}

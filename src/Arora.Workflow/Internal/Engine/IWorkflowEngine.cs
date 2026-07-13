@@ -32,4 +32,14 @@ public interface IWorkflowEngine
     Task AdvanceAsync(
         WorkflowInstance instance,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Executes a specific step for the given workflow instance and transitions
+    /// the instance to the next state based on the step's result condition.
+    /// This is typically called by a background worker.
+    /// </summary>
+    Task ExecuteStepAsync(
+        WorkflowInstance instance,
+        string stepName,
+        CancellationToken cancellationToken = default);
 }

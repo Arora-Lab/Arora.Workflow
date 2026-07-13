@@ -22,7 +22,11 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // Register Arora Workflow
 builder.Services.AddAroraWorkflow()
-    .UseEntityFramework<AppDbContext>();
+    .UseEntityFramework<AppDbContext>()
+    .UseBackgroundProcessing(options =>
+    {
+        options.PollingInterval = TimeSpan.FromSeconds(2); // faster for sample
+    });
 
 // Register a fake TenantContext for the sample
 builder.Services.AddScoped<ITenantContext, FakeTenantContext>();
@@ -142,7 +146,7 @@ public record InvoiceRequest(string InvoiceId, decimal Amount, string VendorId);
 
 public class FakeTenantContext : ITenantContext
 {
-    public Guid TenantId { get; } = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    public Guid TenantId { get; set; } = Guid.Parse("11111111-1111-1111-1111-111111111111");
 }
 
 public class AppDbContext : DbContext, IAroraTenantDbContext

@@ -15,17 +15,20 @@ internal sealed class WorkflowEngine : IWorkflowEngine
 {
     private readonly IWorkflowDefinitionRepository _definitionRepo;
     private readonly IApprovalRepository _approvalRepo;
+    private readonly IWorkItemRepository _workItemRepo;
     private readonly IWorkflowClock _clock;
     private readonly IServiceProvider _serviceProvider;
 
     public WorkflowEngine(
         IWorkflowDefinitionRepository definitionRepo,
         IApprovalRepository approvalRepo,
+        IWorkItemRepository workItemRepo,
         IWorkflowClock clock,
         IServiceProvider serviceProvider)
     {
         _definitionRepo = definitionRepo ?? throw new ArgumentNullException(nameof(definitionRepo));
         _approvalRepo = approvalRepo ?? throw new ArgumentNullException(nameof(approvalRepo));
+        _workItemRepo = workItemRepo ?? throw new ArgumentNullException(nameof(workItemRepo));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
     }
@@ -130,79 +133,114 @@ internal sealed class WorkflowEngine : IWorkflowEngine
             }
             else
             {
-                // It's a standard Step
-                var stepResultCondition = (string?)null;
-
-                if (!string.IsNullOrEmpty(node.StepType))
-                {
-                    var stepType = Type.GetType(node.StepType);
+                // It's a standard Step. Enqueue a WorkItem for background processing.
+                var payload = JsonSerializer.Serialize(new { StepName = currentStateName });
+                
+                var workItem = new Arora.Workflow.Domain.Entities.WorkItem(
+                    Guid.NewGuid(),
+                    instance.TenantId.ToString(),
+                    instance.Id,
+                    Arora.Workflow.Domain.Entities.WorkType.ExecuteStep,
+                    _clock.UtcNow,
+                    payload);
                     
-                    if (stepType == null && node.StepType.Contains(","))
-                    {
-                        // Fallback: try parsing without Version/Culture/PublicKeyToken
-                        var parts = node.StepType.Split(',');
-                        if (parts.Length >= 2)
-                        {
-                            var simplifiedName = $"{parts[0].Trim()}, {parts[1].Trim()}";
-                            stepType = Type.GetType(simplifiedName);
-                        }
-                    }
-
-                    if (stepType == null) throw new InvalidOperationException($"Type.GetType returned null for {node.StepType}");
-                    
-                    // Create a scope for this step execution
-                    using var scope = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.CreateScope(_serviceProvider);
-                    
-                    var stepInstance = scope.ServiceProvider.GetService(stepType) ?? Activator.CreateInstance(stepType);
-                    if (stepInstance is Arora.Workflow.Application.Steps.IWorkflowStep step)
-                    {
-                        var context = new Arora.Workflow.Application.Steps.StepExecutionContext
-                        {
-                            Instance = instance,
-                            StepName = currentStateName,
-                            CancellationToken = cancellationToken
-                        };
-                        // Construct middleware pipeline
-                        var middlewares = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
-                            .GetServices<Arora.Workflow.Application.Middleware.IWorkflowMiddleware>(scope.ServiceProvider)
-                            .Reverse()
-                            .ToList();
-                        
-                        Arora.Workflow.Application.Middleware.WorkflowStepDelegate pipeline = (ctx) => step.ExecuteAsync(ctx);
-                        
-                        foreach (var middleware in middlewares)
-                        {
-                            var next = pipeline;
-                            pipeline = (ctx) => middleware.InvokeAsync(ctx, next);
-                        }
-
-                        stepResultCondition = await pipeline(context);
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException($"Step type '{node.StepType}' does not implement IWorkflowStep.");
-                    }
-                }
-
-                var nextTransition = node.Transitions.FirstOrDefault(t => 
-                    string.Equals(t.Condition, stepResultCondition, StringComparison.OrdinalIgnoreCase))
-                    ?? node.Transitions.FirstOrDefault(t => string.IsNullOrEmpty(t.Condition));
-
-                if (nextTransition != null)
-                {
-                    instance.TransitionTo(
-                        new WorkflowState(nextTransition.TargetNode, WorkflowStateType.Intermediate),
-                        null,
-                        _clock.UtcNow);
-                }
-                else
-                {
-                    instance.TransitionTo(
-                        new WorkflowState("Completed", WorkflowStateType.Completed),
-                        null,
-                        _clock.UtcNow);
-                }
+                await _workItemRepo.AddAsync(workItem, cancellationToken);
+                
+                // Stop advancing. The background worker will pick it up, execute it, 
+                // and call AdvanceAsync again.
+                canAdvance = false;
             }
         }
     }
+
+    /// <inheritdoc />
+    public async Task ExecuteStepAsync(
+        WorkflowInstance instance,
+        string stepName,
+        CancellationToken cancellationToken = default)
+    {
+        if (instance.IsInTerminalState())
+            return;
+
+        var definition = await _definitionRepo.GetByIdAsync(instance.WorkflowDefinitionId, cancellationToken);
+        if (definition == null)
+            throw new InvalidOperationException($"Definition {instance.WorkflowDefinitionId} not found for instance {instance.Id}");
+
+        var graph = WorkflowGraph.Parse(definition.DefinitionJson);
+        if (!graph.Nodes.TryGetValue(stepName, out var node))
+            throw new InvalidOperationException($"Node {stepName} not found in graph");
+
+        var stepResultCondition = (string?)null;
+
+        if (!string.IsNullOrEmpty(node.StepType))
+        {
+            var stepType = Type.GetType(node.StepType);
+            
+            if (stepType == null && node.StepType.Contains(","))
+            {
+                // Fallback: try parsing without Version/Culture/PublicKeyToken
+                var parts = node.StepType.Split(',');
+                if (parts.Length >= 2)
+                {
+                    var simplifiedName = $"{parts[0].Trim()}, {parts[1].Trim()}";
+                    stepType = Type.GetType(simplifiedName);
+                }
+            }
+
+            if (stepType == null) throw new InvalidOperationException($"Type.GetType returned null for {node.StepType}");
+            
+            // Create a scope for this step execution
+            using var scope = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.CreateScope(_serviceProvider);
+            
+            var stepInstance = scope.ServiceProvider.GetService(stepType) ?? Activator.CreateInstance(stepType);
+            if (stepInstance is Arora.Workflow.Application.Steps.IWorkflowStep step)
+            {
+                var context = new Arora.Workflow.Application.Steps.StepExecutionContext
+                {
+                    Instance = instance,
+                    StepName = stepName,
+                    CancellationToken = cancellationToken
+                };
+                // Construct middleware pipeline
+                var middlewares = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions
+                    .GetServices<Arora.Workflow.Application.Middleware.IWorkflowMiddleware>(scope.ServiceProvider)
+                    .Reverse()
+                    .ToList();
+                
+                Arora.Workflow.Application.Middleware.WorkflowStepDelegate pipeline = (ctx) => step.ExecuteAsync(ctx);
+                
+                foreach (var middleware in middlewares)
+                {
+                    var next = pipeline;
+                    pipeline = (ctx) => middleware.InvokeAsync(ctx, next);
+                }
+
+                stepResultCondition = await pipeline(context);
+            }
+            else
+            {
+                throw new InvalidOperationException($"Step type '{node.StepType}' does not implement IWorkflowStep.");
+            }
+        }
+
+        var nextTransition = node.Transitions.FirstOrDefault(t => 
+            string.Equals(t.Condition, stepResultCondition, StringComparison.OrdinalIgnoreCase))
+            ?? node.Transitions.FirstOrDefault(t => string.IsNullOrEmpty(t.Condition));
+
+        if (nextTransition != null)
+        {
+            instance.TransitionTo(
+                new WorkflowState(nextTransition.TargetNode, WorkflowStateType.Intermediate),
+                null,
+                _clock.UtcNow);
+        }
+        else
+        {
+            instance.TransitionTo(
+                new WorkflowState("Completed", WorkflowStateType.Completed),
+                null,
+                _clock.UtcNow);
+        }
+    }
 }
+

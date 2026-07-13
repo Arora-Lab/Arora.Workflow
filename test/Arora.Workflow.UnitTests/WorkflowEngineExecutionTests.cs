@@ -74,7 +74,7 @@ public class WorkflowEngineExecutionTests
         var sp = services.BuildServiceProvider();
 
         var host = new TestWorkflowHost();
-        var engine = new WorkflowEngine(host.DefinitionRepository, host.ApprovalRepository, host.Clock, sp);
+        var engine = new WorkflowEngine(host.DefinitionRepository, host.ApprovalRepository, host.WorkItemRepository, host.Clock, sp);
 
         var json = $$"""
         {
@@ -97,6 +97,11 @@ public class WorkflowEngineExecutionTests
 
         // Act
         await engine.AdvanceAsync(instance, CancellationToken.None);
+        Assert.Single(host.WorkItemRepository.All);
+
+        // Simulate worker processing
+        await engine.ExecuteStepAsync(instance, "Step1", CancellationToken.None);
+        await engine.AdvanceAsync(instance, CancellationToken.None);
 
         // Assert
         Assert.Equal(1, MockExecutionStep.ExecutionCount);
@@ -115,7 +120,7 @@ public class WorkflowEngineExecutionTests
         var sp = services.BuildServiceProvider();
 
         var host = new TestWorkflowHost();
-        var engine = new WorkflowEngine(host.DefinitionRepository, host.ApprovalRepository, host.Clock, sp);
+        var engine = new WorkflowEngine(host.DefinitionRepository, host.ApprovalRepository, host.WorkItemRepository, host.Clock, sp);
 
         var json = $$"""
         {
@@ -141,6 +146,11 @@ public class WorkflowEngineExecutionTests
 
         // Act
         await engine.AdvanceAsync(instance, CancellationToken.None);
+        Assert.Single(host.WorkItemRepository.All);
+
+        // Simulate worker processing
+        await engine.ExecuteStepAsync(instance, "Step1", CancellationToken.None);
+        await engine.AdvanceAsync(instance, CancellationToken.None);
 
         var parsedGraph = Arora.Workflow.Internal.Engine.Graph.WorkflowGraph.Parse(def.DefinitionJson);
         Assert.Equal("Success", parsedGraph.Nodes["Step1"].Transitions[1].Condition);
@@ -163,7 +173,7 @@ public class WorkflowEngineExecutionTests
         var sp = services.BuildServiceProvider();
 
         var host = new TestWorkflowHost();
-        var engine = new WorkflowEngine(host.DefinitionRepository, host.ApprovalRepository, host.Clock, sp);
+        var engine = new WorkflowEngine(host.DefinitionRepository, host.ApprovalRepository, host.WorkItemRepository, host.Clock, sp);
 
         var json = $$"""
         {
@@ -185,6 +195,11 @@ public class WorkflowEngineExecutionTests
         var instance = WorkflowInstance.Start(Guid.NewGuid(), def.Id, 1, "test-def", "UseMiddlewareResult", "idemp1", initialState, null, new ActorInfo("sys", "sys"), host.Clock.UtcNow);
 
         // Act
+        await engine.AdvanceAsync(instance, CancellationToken.None);
+        Assert.Single(host.WorkItemRepository.All);
+
+        // Simulate worker processing
+        await engine.ExecuteStepAsync(instance, "Step1", CancellationToken.None);
         await engine.AdvanceAsync(instance, CancellationToken.None);
 
         // Assert

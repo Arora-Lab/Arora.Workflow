@@ -51,6 +51,9 @@ public sealed class TestWorkflowHost
     /// <summary>The fixed tenant context.</summary>
     public FakeTenantContext TenantContext { get; } = new();
 
+    /// <summary>The in-memory work item repository. Assert on pending background items.</summary>
+    public InMemoryWorkItemRepository WorkItemRepository { get; } = new();
+
     // ── Services under test ──────────────────────────────────────────────────
 
     /// <summary>The fully wired <see cref="IWorkflowService"/> backed by in-memory fakes.</summary>
@@ -69,7 +72,7 @@ public sealed class TestWorkflowHost
         var serviceProvider = services.BuildServiceProvider();
 
         var publisher = serviceProvider.GetRequiredService<IPublisher>();
-        var engine    = new WorkflowEngine(DefinitionRepository, ApprovalRepository, Clock, serviceProvider);
+        var engine    = new WorkflowEngine(DefinitionRepository, ApprovalRepository, WorkItemRepository, Clock, serviceProvider);
 
         WorkflowService = new WorkflowService(
             definitionRepo: DefinitionRepository,

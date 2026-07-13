@@ -152,4 +152,4 @@ MIT — see [LICENSE](LICENSE).
 
 ## Author
 
-Brian Arora — [GitHub](https://github.com/BrianArora)
+Arora Lab — [GitHub](https://github.com/Arora-Lab) | [Website](https://arora-lab.com/)
