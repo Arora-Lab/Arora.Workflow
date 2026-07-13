@@ -50,6 +50,12 @@ internal sealed class WorkflowInstanceConfiguration
         builder.Property(x => x.InputJson)
             .HasColumnType("text");
 
+        builder.Property(x => x.IsDeleted)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(x => x.DeletedAt);
+
         // ── ActorInfo owned value object ─────────────────────────────────────
         // CreatedBy is an ActorInfo record (Id + DisplayName).
         // Stored as two columns in the same table — no join required.

@@ -85,10 +85,17 @@ internal sealed class EfCoreWorkflowInstanceRepository : IWorkflowInstanceReposi
 internal sealed class EfCoreUnitOfWork : IUnitOfWork
 {
     private readonly DbContext _db;
+    private readonly ITenantContext _tenantContext;
+    private readonly IWorkflowClock _clock;
 
-    public EfCoreUnitOfWork(DbContextProvider provider)
+    public EfCoreUnitOfWork(
+        DbContextProvider provider,
+        ITenantContext tenantContext,
+        IWorkflowClock clock)
     {
         _db = provider.Context;
+        _tenantContext = tenantContext;
+        _clock = clock;
     }
 
     /// <inheritdoc />
@@ -101,7 +108,10 @@ internal sealed class EfCoreUnitOfWork : IUnitOfWork
 
         var domainEvents = workflowInstances.SelectMany(x => x.DomainEvents).ToList();
 
-        // Project events into History entities attached to the current DbContext.
+        // 1. Update Audit Columns
+        UpdateAuditColumns();
+
+        // 2. Project events into History entities attached to the current DbContext.
         // This ensures the audit trail is saved atomically with the state change.
         foreach (var domainEvent in domainEvents)
         {
@@ -177,6 +187,37 @@ internal sealed class EfCoreUnitOfWork : IUnitOfWork
 
         // We DO NOT clear the domain events here.
         // WorkflowService will read them to publish MediatR notifications AFTER this commit succeeds.
-        return await _db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            return await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new Arora.Workflow.Domain.Exceptions.WorkflowConcurrencyException(
+                "A concurrency conflict occurred while saving the workflow instance. " +
+                "The instance was modified by another process.", ex);
+        }
+    }
+
+    private void UpdateAuditColumns()
+    {
+        var entries = _db.ChangeTracker.Entries()
+            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
+
+        var now = _clock.UtcNow;
+
+        foreach (var entry in entries)
+        {
+            var modifiedAtProp = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "ModifiedAt");
+            if (modifiedAtProp != null)
+                modifiedAtProp.CurrentValue = now;
+
+            if (entry.State == EntityState.Added)
+            {
+                var createdAtProp = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "CreatedAt");
+                if (createdAtProp != null && (createdAtProp.CurrentValue == null || (DateTimeOffset)createdAtProp.CurrentValue == default))
+                    createdAtProp.CurrentValue = now;
+            }
+        }
     }
 }

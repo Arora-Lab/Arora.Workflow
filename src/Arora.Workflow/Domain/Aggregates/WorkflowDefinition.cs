@@ -80,6 +80,12 @@ public sealed class WorkflowDefinition
     /// <summary>The actor who last modified this definition.</summary>
     public string ModifiedBy { get; private set; } = default!;
 
+    /// <summary>Whether this definition is soft deleted.</summary>
+    public bool IsDeleted { get; private set; }
+
+    /// <summary>When this definition was soft deleted.</summary>
+    public DateTimeOffset? DeletedAt { get; private set; }
+
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
@@ -111,7 +117,8 @@ public sealed class WorkflowDefinition
             CreatedAt      = clock,
             CreatedBy      = createdBy,
             ModifiedAt     = clock,
-            ModifiedBy     = createdBy
+            ModifiedBy     = createdBy,
+            IsDeleted      = false
         };
     }
 
@@ -176,7 +183,8 @@ public sealed class WorkflowDefinition
             CreatedAt      = clock,
             CreatedBy      = createdBy,
             ModifiedAt     = clock,
-            ModifiedBy     = createdBy
+            ModifiedBy     = createdBy,
+            IsDeleted      = false
         };
     }
 

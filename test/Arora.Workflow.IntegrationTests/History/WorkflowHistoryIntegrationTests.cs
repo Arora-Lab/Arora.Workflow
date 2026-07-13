@@ -26,6 +26,11 @@ public class WorkflowHistoryIntegrationTests : IAsyncLifetime
         }
     }
 
+    private class FakeTenantContext : ITenantContext
+    {
+        public Guid TenantId { get; } = Guid.NewGuid();
+    }
+
     private ServiceProvider _serviceProvider = null!;
     private string _dbName = null!;
 
@@ -37,8 +42,8 @@ public class WorkflowHistoryIntegrationTests : IAsyncLifetime
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(AroraWorkflowBuilder).Assembly));
 
         // Arora Workflow EF Core extensions
-        var builder = new AroraWorkflowBuilder(services);
-        builder.UseEntityFramework<TestDbContext>();
+        services.AddAroraWorkflow()
+            .UseEntityFramework<TestDbContext>();
 
         // DbContext
         _dbName = Guid.NewGuid().ToString();
@@ -46,6 +51,8 @@ public class WorkflowHistoryIntegrationTests : IAsyncLifetime
         {
             options.UseInMemoryDatabase(_dbName);
         });
+
+        services.AddSingleton<ITenantContext, FakeTenantContext>();
 
         _serviceProvider = services.BuildServiceProvider();
         return Task.CompletedTask;

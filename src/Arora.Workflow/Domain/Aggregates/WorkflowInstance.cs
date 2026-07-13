@@ -89,6 +89,12 @@ public sealed class WorkflowInstance
     /// <summary>The UTC time this instance reached a terminal state. Null if still running.</summary>
     public DateTimeOffset? CompletedAt { get; private set; }
 
+    /// <summary>Whether this instance is soft deleted.</summary>
+    public bool IsDeleted { get; private set; }
+
+    /// <summary>When this instance was soft deleted.</summary>
+    public DateTimeOffset? DeletedAt { get; private set; }
+
     // -------------------------------------------------------------------------
     // Domain events — collected, not published. The engine reads and clears
     // this list after the database commit. Handlers are invoked outside the
@@ -157,7 +163,8 @@ public sealed class WorkflowInstance
             InputJson                = inputJson,
             CreatedAt                = clock,
             CreatedBy                = initiatedBy,
-            ModifiedAt               = clock
+            ModifiedAt               = clock,
+            IsDeleted                = false
         };
 
         instance._domainEvents.Add(new WorkflowStarted(

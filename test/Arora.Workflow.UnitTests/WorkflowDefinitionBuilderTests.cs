@@ -12,17 +12,19 @@ public class WorkflowDefinitionBuilderTests
     public void BuildJson_WithStepAndApproval_GeneratesExpectedGraph()
     {
         // Arrange
-        var builder = new WorkflowDefinitionBuilder();
+        var builder = WorkflowDefinitionBuilder.Create("TestWorkflow");
         builder
             .WithStep<DummyStep>("Step1")
             .TransitionsTo("Approval1")
             .WithApproval("Approval1")
             .OnApprove("Step2")
             .OnReject("End")
+            .EndApproval()
             .WithStep<DummyStep>("Step2");
 
         // Act
-        var json = builder.BuildJson();
+        var definition = builder.Build();
+        var json = definition.Json;
 
         // Assert
         var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };

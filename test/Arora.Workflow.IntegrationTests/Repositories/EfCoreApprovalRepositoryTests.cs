@@ -25,6 +25,11 @@ public class TestDbContext : DbContext
     }
 }
 
+public class FakeTenantContext : ITenantContext
+{
+    public Guid TenantId { get; } = Guid.NewGuid();
+}
+
 public class EfCoreApprovalRepositoryTests
 {
     private readonly ServiceProvider _serviceProvider;
@@ -36,6 +41,8 @@ public class EfCoreApprovalRepositoryTests
         
         services.AddDbContext<TestDbContext>(options =>
             options.UseInMemoryDatabase(Guid.NewGuid().ToString()));
+            
+        services.AddSingleton<ITenantContext, FakeTenantContext>();
             
         services.AddAroraWorkflow()
             .UseEntityFramework<TestDbContext>();

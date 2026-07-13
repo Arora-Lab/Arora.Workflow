@@ -179,6 +179,17 @@ public sealed class InMemoryApprovalRepository : IApprovalRepository
             
         return Task.FromResult(approval);
     }
+
+    public Task<IReadOnlyList<Approval>> GetPendingByActorAsync(
+        Arora.Workflow.Domain.ValueObjects.ActorInfo actor,
+        CancellationToken cancellationToken = default)
+    {
+        var approvals = _store.Values
+            .Where(x => x.Status == Arora.Workflow.Domain.ValueObjects.ApprovalStatus.Pending && x.AssignedActor?.Id == actor.Id)
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<Approval>>(approvals);
+    }
 }
 
 public sealed class InMemoryWorkflowHistoryRepository : IWorkflowHistoryRepository

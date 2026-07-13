@@ -53,6 +53,13 @@ internal sealed class WorkflowDefinitionConfiguration
         builder.Property(x => x.Description)
             .HasMaxLength(2000);
 
+        builder.Property(x => x.IsDeleted)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(x => x.DeletedAt);
+
+        // ── Timestamps ──────────────────────────────────────────────────────────
         // ── Indexes ──────────────────────────────────────────────────────────
         // Unique: one definition per (tenant, name, version)
         builder.HasIndex(x => new { x.TenantId, x.Name, x.Version })

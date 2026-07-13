@@ -1,4 +1,5 @@
 using Arora.Workflow.Application.Interfaces;
+using Arora.Workflow.Application.Middleware;
 using Arora.Workflow.Application.Services;
 using Arora.Workflow.Internal.Engine;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,6 +46,13 @@ public static class AroraWorkflowServiceCollectionExtensions
 
         // ── Clock (Singleton — stateless, safe to share) ─────────────────────
         services.AddSingleton<IWorkflowClock, SystemClock>();
+
+        // ── Step Middleware ──────────────────────────────────────────────────
+        // The order of registration dictates execution order:
+        // First registered is outer-most.
+        // E.g., Logging wraps Retry, which wraps the actual step.
+        services.AddScoped<IWorkflowMiddleware, Arora.Workflow.Application.Middleware.LoggingMiddleware>();
+        services.AddScoped<IWorkflowMiddleware, Arora.Workflow.Application.Middleware.RetryMiddleware>();
 
         // ── MediatR (for domain event publication) ───────────────────────────
         // AddMediatR is idempotent — safe to call even if the host app already

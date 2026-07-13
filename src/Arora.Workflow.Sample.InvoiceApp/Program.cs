@@ -145,13 +145,37 @@ public class FakeTenantContext : ITenantContext
     public Guid TenantId { get; } = Guid.Parse("11111111-1111-1111-1111-111111111111");
 }
 
-public class AppDbContext : DbContext
+public class AppDbContext : DbContext, IAroraTenantDbContext
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+    private readonly ITenantContext _tenantContext;
+
+    public AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext) : base(options) 
+    { 
+        _tenantContext = tenantContext;
+    }
+
+    public Guid TenantId => _tenantContext.TenantId;
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         builder.ApplyAroraWorkflowMappings();
+
+        // Apply Global Query Filters for multi-tenancy and soft delete
+        builder.Entity<Arora.Workflow.Domain.Aggregates.WorkflowDefinition>()
+            .HasQueryFilter(x => x.TenantId == this.TenantId && !x.IsDeleted);
+
+        builder.Entity<Arora.Workflow.Domain.Aggregates.WorkflowInstance>()
+            .HasQueryFilter(x => x.TenantId == this.TenantId && !x.IsDeleted);
+
+        builder.Entity<Arora.Workflow.Domain.Aggregates.Approval>()
+            .HasQueryFilter(x => x.TenantId == this.TenantId);
+
+        builder.Entity<Arora.Workflow.EntityFramework.Entities.WorkflowHistoryEntity>()
+            .HasQueryFilter(x => x.TenantId == this.TenantId);
+
+        builder.Entity<Arora.Workflow.Domain.Entities.WorkItem>()
+            .HasQueryFilter(x => x.TenantId == this.TenantId.ToString());
+
         base.OnModelCreating(builder);
     }
 }
