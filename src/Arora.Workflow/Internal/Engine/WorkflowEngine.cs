@@ -52,6 +52,17 @@ internal sealed class WorkflowEngine : IWorkflowEngine
         {
             var currentStateName = instance.CurrentState;
             
+            // If the instance is just started, it is in the "Initial" state.
+            // We transition immediately to the graph's defined InitialNode.
+            if (currentStateName == "Initial" && !string.IsNullOrEmpty(graph.InitialNode))
+            {
+                instance.TransitionTo(
+                    new WorkflowState(graph.InitialNode, WorkflowStateType.Intermediate),
+                    null,
+                    _clock.UtcNow);
+                continue;
+            }
+
             // If the graph is entirely empty, we just mark it completed. 
             // For real implementations, a proper validation occurs during definition creation.
             if (!graph.Nodes.TryGetValue(currentStateName, out var node))
@@ -96,6 +107,23 @@ internal sealed class WorkflowEngine : IWorkflowEngine
                 }
                 else
                 {
+                    if (approval == null)
+                    {
+                        var assignee = node.Assignee ?? "system";
+                        var assignedActor = new ActorInfo(assignee, assignee);
+                        
+                        var newApproval = Approval.Create(
+                            instance.TenantId,
+                            instance.Id,
+                            instance.WorkflowName,
+                            instance.CorrelationId,
+                            currentStateName,
+                            assignedActor,
+                            _clock.UtcNow);
+                            
+                        await _approvalRepo.AddAsync(newApproval, cancellationToken);
+                    }
+                    
                     // No decision yet, we wait.
                     canAdvance = false;
                 }
@@ -108,6 +136,18 @@ internal sealed class WorkflowEngine : IWorkflowEngine
                 if (!string.IsNullOrEmpty(node.StepType))
                 {
                     var stepType = Type.GetType(node.StepType);
+                    
+                    if (stepType == null && node.StepType.Contains(","))
+                    {
+                        // Fallback: try parsing without Version/Culture/PublicKeyToken
+                        var parts = node.StepType.Split(',');
+                        if (parts.Length >= 2)
+                        {
+                            var simplifiedName = $"{parts[0].Trim()}, {parts[1].Trim()}";
+                            stepType = Type.GetType(simplifiedName);
+                        }
+                    }
+
                     if (stepType == null) throw new InvalidOperationException($"Type.GetType returned null for {node.StepType}");
                     
                     // Create a scope for this step execution

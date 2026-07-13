@@ -42,6 +42,16 @@ public class WorkflowGraphNode
     /// </summary>
     public string? StepType { get; set; }
 
+    /// <summary>
+    /// The actor ID assigned to this node, if it is an Approval node.
+    /// </summary>
+    public string? Assignee { get; set; }
+
+    /// <summary>
+    /// Indicates whether the step should be executed asynchronously by the background worker.
+    /// </summary>
+    public bool IsAsync { get; set; }
+
     public List<WorkflowGraphTransition> Transitions { get; set; } = new();
 }
 

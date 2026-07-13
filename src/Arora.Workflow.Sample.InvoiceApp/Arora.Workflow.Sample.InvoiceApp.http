@@ -1,0 +1,6 @@
+@Arora.Workflow.Sample.InvoiceApp_HostAddress = http://localhost:5072
+
+GET {{Arora.Workflow.Sample.InvoiceApp_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

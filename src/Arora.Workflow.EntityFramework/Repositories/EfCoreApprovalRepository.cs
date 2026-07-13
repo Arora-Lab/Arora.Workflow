@@ -1,5 +1,6 @@
 using Arora.Workflow.Application.Interfaces;
 using Arora.Workflow.Domain.Aggregates;
+using Arora.Workflow.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
 namespace Arora.Workflow.EntityFramework.Repositories;
@@ -48,9 +49,26 @@ internal sealed class EfCoreApprovalRepository : IApprovalRepository
         string stepName,
         CancellationToken cancellationToken = default)
     {
-        return await _db.Set<Approval>()
-            .Where(x => x.WorkflowInstanceId == workflowInstanceId && x.StepName == stepName)
-            .OrderByDescending(x => x.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
+        var approvals = await _db.Set<Approval>()
+            .Where(a => a.WorkflowInstanceId == workflowInstanceId && a.StepName == stepName)
+            .ToListAsync(cancellationToken);
+
+        return approvals
+            .OrderByDescending(a => a.CreatedAt)
+            .FirstOrDefault();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Approval>> GetPendingByActorAsync(
+        ActorInfo actor,
+        CancellationToken cancellationToken = default)
+    {
+        var approvals = await _db.Set<Approval>()
+            .Where(a => a.Status == ApprovalStatus.Pending && a.AssignedActor.Id == actor.Id)
+            .ToListAsync(cancellationToken);
+
+        return approvals
+            .OrderBy(a => a.CreatedAt)
+            .ToList();
     }
 }

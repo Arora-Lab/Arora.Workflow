@@ -22,11 +22,10 @@ internal sealed class EfCoreWorkflowHistoryRepository : IWorkflowHistoryReposito
     {
         var entities = await _db.Set<WorkflowHistoryEntity>()
             .Where(x => x.WorkflowInstanceId == instanceId)
-            .OrderBy(x => x.OccurredAt)
             .ToListAsync(cancellationToken);
 
         var list = new List<WorkflowHistory>();
-        foreach(var e in entities)
+        foreach(var e in entities.OrderBy(x => x.OccurredAt))
         {
             ActorInfo? actor = null;
             if (e.ActorId != null && e.ActorName != null)

@@ -46,11 +46,19 @@ internal sealed class ApprovalService : IApprovalService
         ActorInfo actor,
         CancellationToken cancellationToken = default)
     {
-        // For a full implementation, IApprovalRepository would have a GetPendingByActorAsync.
-        // But since this is phase 2 execution, we can return an empty list or we can assume
-        // the repository has a method. We'll leave this empty for now until we add the repo method.
-        // Since we are not testing queries yet, this is sufficient.
-        return await Task.FromResult(Array.Empty<PendingApproval>());
+        var approvals = await _approvalRepo.GetPendingByActorAsync(actor, cancellationToken);
+        
+        return approvals.Select(a => new PendingApproval
+        {
+            ApprovalId = a.Id,
+            WorkflowInstanceId = a.WorkflowInstanceId,
+            WorkflowName = a.WorkflowName,
+            CorrelationId = a.CorrelationId,
+            StepName = a.StepName,
+            AssignedActor = a.AssignedActor,
+            CreatedAt = a.CreatedAt,
+            DeadlineAt = a.DeadlineAt
+        }).ToList();
     }
 
     /// <inheritdoc />

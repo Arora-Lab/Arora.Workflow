@@ -32,6 +32,7 @@ public static class AroraWorkflowModelBuilderExtensions
         builder.ApplyConfiguration(new WorkflowInstanceConfiguration());
         builder.ApplyConfiguration(new ApprovalConfiguration());
         builder.ApplyConfiguration(new WorkflowHistoryConfiguration());
+        builder.ApplyConfiguration(new WorkItemConfiguration());
 
         return builder;
     }

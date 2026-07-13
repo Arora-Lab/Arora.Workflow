@@ -38,12 +38,14 @@ public class WorkflowDefinitionBuilder
     /// Adds a manual approval node to the workflow.
     /// </summary>
     /// <param name="stepName">The unique name for this step.</param>
-    public WorkflowDefinitionBuilder WithApproval(string stepName)
+    /// <param name="assignee">The actor ID assigned to this approval.</param>
+    public WorkflowDefinitionBuilder WithApproval(string stepName, string? assignee = null)
     {
         var node = new WorkflowGraphNode 
         {
             Name = stepName,
-            Type = "Approval"
+            Type = "Approval",
+            Assignee = assignee
         };
 
         _initialNode ??= stepName;

@@ -1,0 +1,38 @@
+@InvoiceApp_HostAddress = https://localhost:7001
+
+### 1. Start a new workflow
+POST {{InvoiceApp_HostAddress}}/api/invoices
+Content-Type: application/json
+
+{
+  "invoiceId": "INV-1001",
+  "amount": 1500.50,
+  "vendorId": "VEND-ABC"
+}
+
+> {%
+    client.global.set("instanceId", response.body.workflowInstanceId);
+%}
+
+### 2. Check Status (Should be PendingApproval)
+GET {{InvoiceApp_HostAddress}}/api/invoices/{{instanceId}}/status
+
+### 3. Check Pending Approvals for 'tester'
+GET {{InvoiceApp_HostAddress}}/api/approvals/pending/tester
+
+> {%
+    // Assuming the response is an array, we grab the first approvalId
+    if (response.body.length > 0) {
+        client.global.set("approvalId", response.body[0].id);
+    }
+%}
+
+### 4. Approve the Invoice
+POST {{InvoiceApp_HostAddress}}/api/approvals/{{approvalId}}/approve
+Content-Type: application/json
+
+### 5. Check Status again (Should be Completed)
+GET {{InvoiceApp_HostAddress}}/api/invoices/{{instanceId}}/status
+
+### 6. Check History
+GET {{InvoiceApp_HostAddress}}/api/invoices/{{instanceId}}/history

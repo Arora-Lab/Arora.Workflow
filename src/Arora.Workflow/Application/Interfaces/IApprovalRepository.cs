@@ -1,4 +1,5 @@
 using Arora.Workflow.Domain.Aggregates;
+using Arora.Workflow.Domain.ValueObjects;
 
 namespace Arora.Workflow.Application.Interfaces;
 
@@ -34,5 +35,12 @@ public interface IApprovalRepository
     Task<Approval?> GetLatestApprovalAsync(
         Guid workflowInstanceId,
         string stepName,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets all pending approvals assigned to a specific actor.
+    /// </summary>
+    Task<IReadOnlyList<Approval>> GetPendingByActorAsync(
+        ActorInfo actor,
         CancellationToken cancellationToken = default);
 }
