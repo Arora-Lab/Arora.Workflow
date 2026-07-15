@@ -146,7 +146,7 @@ Each package solves one problem extremely well. Each is independent, versioned s
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Apache 2.0 — see [LICENSE](LICENSE).
 
 ---
 
