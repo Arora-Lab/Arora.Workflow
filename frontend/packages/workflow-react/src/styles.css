@@ -1,0 +1,600 @@
+/* Aurora Workflow Dashboard Styles */
+
+:root {
+  --arora-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  
+  /* Color Palette - Premium Slate & Violet */
+  --arora-primary: #6366f1;
+  --arora-primary-hover: #4f46e5;
+  --arora-primary-light: rgba(99, 102, 241, 0.1);
+  --arora-accent: #a855f7;
+  
+  /* Neutral scale */
+  --arora-bg: #0b0f19;
+  --arora-surface: #151b2c;
+  --arora-surface-hover: #1e263f;
+  --arora-border: #24304f;
+  --arora-text-main: #f3f4f6;
+  --arora-text-muted: #9ca3af;
+  --arora-text-dark: #6b7280;
+  
+  /* Status Colors */
+  --arora-color-running: #3b82f6;
+  --arora-bg-running: rgba(59, 130, 246, 0.12);
+  --arora-border-running: rgba(59, 130, 246, 0.3);
+
+  --arora-color-completed: #10b981;
+  --arora-bg-completed: rgba(16, 185, 129, 0.12);
+  --arora-border-completed: rgba(16, 185, 129, 0.3);
+
+  --arora-color-rejected: #ef4444;
+  --arora-bg-rejected: rgba(239, 68, 68, 0.12);
+  --arora-border-rejected: rgba(239, 68, 68, 0.3);
+
+  --arora-color-cancelled: #64748b;
+  --arora-bg-cancelled: rgba(100, 116, 139, 0.12);
+  --arora-border-cancelled: rgba(100, 116, 139, 0.3);
+
+  --arora-color-pending: #8b5cf6;
+  --arora-bg-pending: rgba(139, 92, 246, 0.12);
+  --arora-border-pending: rgba(139, 92, 246, 0.3);
+
+  /* Layout and shapes */
+  --arora-radius-sm: 6px;
+  --arora-radius-md: 12px;
+  --arora-radius-lg: 16px;
+  --arora-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.3);
+  --arora-shadow-lg: 0 10px 30px -3px rgba(0, 0, 0, 0.5);
+  --arora-transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Light Theme support when .arora-light-theme class is applied */
+.arora-light-theme {
+  --arora-bg: #f8fafc;
+  --arora-surface: #ffffff;
+  --arora-surface-hover: #f1f5f9;
+  --arora-border: #e2e8f0;
+  --arora-text-main: #0f172a;
+  --arora-text-muted: #475569;
+  --arora-text-dark: #94a3b8;
+  --arora-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+  --arora-shadow-lg: 0 10px 30px -3px rgba(15, 23, 42, 0.08);
+}
+
+/* Shared Resets for Dashboard components */
+.arora-dashboard-container {
+  font-family: var(--arora-font-sans);
+  color: var(--arora-text-main);
+  background-color: var(--arora-bg);
+  min-height: 100%;
+  padding: 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  transition: var(--arora-transition);
+}
+
+.arora-dashboard-container *,
+.arora-dashboard-container *::before,
+.arora-dashboard-container *::after {
+  box-sizing: border-box;
+}
+
+/* Layout Modules */
+.arora-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--arora-border);
+  padding-bottom: 20px;
+}
+
+.arora-title-group h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  background: linear-gradient(135deg, var(--arora-primary), var(--arora-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.arora-title-group p {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  color: var(--arora-text-muted);
+}
+
+.arora-user-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--arora-surface);
+  border: 1px solid var(--arora-border);
+  border-radius: var(--arora-radius-lg);
+  font-size: 14px;
+}
+
+.arora-user-badge .avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--arora-primary), var(--arora-accent));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #fff;
+  font-size: 12px;
+}
+
+/* Navigation Tabs */
+.arora-tabs {
+  display: flex;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  border-radius: var(--arora-radius-md);
+  border: 1px solid var(--arora-border);
+  width: fit-content;
+}
+
+.arora-tab-button {
+  background: transparent;
+  border: none;
+  color: var(--arora-text-muted);
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: var(--arora-radius-sm);
+  transition: var(--arora-transition);
+}
+
+.arora-tab-button:hover {
+  color: var(--arora-text-main);
+}
+
+.arora-tab-button.active {
+  background: var(--arora-surface);
+  color: var(--arora-primary);
+  box-shadow: var(--arora-shadow);
+}
+
+/* Dual Pane Layout */
+.arora-layout-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 1024px) {
+  .arora-layout-grid {
+    grid-template-columns: 1.2fr 0.8fr;
+  }
+}
+
+/* Card Component */
+.arora-card {
+  background-color: var(--arora-surface);
+  border: 1px solid var(--arora-border);
+  border-radius: var(--arora-radius-md);
+  box-shadow: var(--arora-shadow);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: var(--arora-transition);
+}
+
+.arora-card:hover {
+  box-shadow: var(--arora-shadow-lg);
+  border-color: rgba(99, 102, 241, 0.25);
+}
+
+.arora-card-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Forms & Filters */
+.arora-filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 12px;
+  border-radius: var(--arora-radius-md);
+  border: 1px solid var(--arora-border);
+}
+
+.arora-input, .arora-select {
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--arora-border);
+  border-radius: var(--arora-radius-sm);
+  color: var(--arora-text-main);
+  padding: 8px 12px;
+  font-size: 14px;
+  outline: none;
+  min-width: 150px;
+  transition: var(--arora-transition);
+}
+
+.arora-input:focus, .arora-select:focus {
+  border-color: var(--arora-primary);
+  box-shadow: 0 0 0 2px var(--arora-primary-light);
+}
+
+/* Table styling */
+.arora-table-wrapper {
+  overflow-x: auto;
+  border-radius: var(--arora-radius-sm);
+  border: 1px solid var(--arora-border);
+}
+
+.arora-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14px;
+}
+
+.arora-table th {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 12px 16px;
+  font-weight: 600;
+  color: var(--arora-text-muted);
+  border-bottom: 1px solid var(--arora-border);
+}
+
+.arora-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--arora-border);
+  color: var(--arora-text-main);
+  transition: var(--arora-transition);
+}
+
+.arora-table tr:last-child td {
+  border-bottom: none;
+}
+
+.arora-table tbody tr {
+  cursor: pointer;
+}
+
+.arora-table tbody tr:hover td {
+  background-color: var(--arora-surface-hover);
+}
+
+/* Badge styling */
+.arora-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.arora-badge-running {
+  color: var(--arora-color-running);
+  background-color: var(--arora-bg-running);
+  border: 1px solid var(--arora-border-running);
+}
+
+.arora-badge-completed {
+  color: var(--arora-color-completed);
+  background-color: var(--arora-bg-completed);
+  border: 1px solid var(--arora-border-completed);
+}
+
+.arora-badge-rejected {
+  color: var(--arora-color-rejected);
+  background-color: var(--arora-bg-rejected);
+  border: 1px solid var(--arora-border-rejected);
+}
+
+.arora-badge-cancelled {
+  color: var(--arora-color-cancelled);
+  background-color: var(--arora-bg-cancelled);
+  border: 1px solid var(--arora-border-cancelled);
+}
+
+.arora-badge-pendingapproval {
+  color: var(--arora-color-pending);
+  background-color: var(--arora-bg-pending);
+  border: 1px solid var(--arora-border-pending);
+}
+
+/* Timeline Components */
+.arora-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+  padding-left: 20px;
+  margin-top: 10px;
+}
+
+.arora-timeline::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background-color: var(--arora-border);
+}
+
+.arora-timeline-item {
+  display: flex;
+  gap: 16px;
+  position: relative;
+}
+
+.arora-timeline-node {
+  position: absolute;
+  left: -20px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: var(--arora-border);
+  border: 2px solid var(--arora-surface);
+  top: 5px;
+  z-index: 1;
+  transition: var(--arora-transition);
+}
+
+.arora-timeline-item:hover .arora-timeline-node {
+  transform: scale(1.3);
+  background-color: var(--arora-primary);
+}
+
+.arora-timeline-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.arora-timeline-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.arora-timeline-time {
+  font-size: 12px;
+  color: var(--arora-text-dark);
+}
+
+.arora-timeline-body {
+  font-size: 13px;
+  color: var(--arora-text-muted);
+}
+
+/* Code Inspector Panel */
+.arora-code-panel {
+  background-color: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--arora-border);
+  border-radius: var(--arora-radius-sm);
+  padding: 16px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  color: #a7f3d0; /* Soft green tech look */
+  max-height: 250px;
+}
+
+/* Button UI */
+.arora-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: var(--arora-radius-sm);
+  cursor: pointer;
+  outline: none;
+  transition: var(--arora-transition);
+}
+
+.arora-btn-primary {
+  background-color: var(--arora-primary);
+  border: 1px solid var(--arora-primary);
+  color: #fff;
+}
+
+.arora-btn-primary:hover:not(:disabled) {
+  background-color: var(--arora-primary-hover);
+}
+
+.arora-btn-secondary {
+  background-color: transparent;
+  border: 1px solid var(--arora-border);
+  color: var(--arora-text-main);
+}
+
+.arora-btn-secondary:hover:not(:disabled) {
+  background-color: var(--arora-surface-hover);
+}
+
+.arora-btn-danger {
+  background-color: transparent;
+  border: 1px solid var(--arora-color-rejected);
+  color: var(--arora-color-rejected);
+}
+
+.arora-btn-danger:hover:not(:disabled) {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.arora-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Pagination */
+.arora-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.arora-pagination-info {
+  font-size: 14px;
+  color: var(--arora-text-muted);
+}
+
+.arora-pagination-controls {
+  display: flex;
+  gap: 8px;
+}
+
+/* Loading & Empty states */
+.arora-loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  color: var(--arora-primary);
+}
+
+.arora-loading-spinner::after {
+  content: '';
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(99, 102, 241, 0.2);
+  border-top-color: var(--arora-primary);
+  border-radius: 50%;
+  animation: spinner 0.8s linear infinite;
+}
+
+@keyframes spinner {
+  to { transform: rotate(360deg); }
+}
+
+.arora-empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--arora-text-muted);
+  border: 2px dashed var(--arora-border);
+  border-radius: var(--arora-radius-md);
+}
+
+.arora-empty-state svg {
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+/* Pending Approval Cards */
+.arora-approval-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .arora-approval-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.arora-approval-card {
+  background: var(--arora-surface);
+  border: 1px solid var(--arora-border);
+  border-radius: var(--arora-radius-md);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: var(--arora-transition);
+}
+
+.arora-approval-card:hover {
+  border-color: var(--arora-primary);
+  transform: translateY(-2px);
+}
+
+.arora-approval-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.arora-approval-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.arora-approval-subtitle {
+  font-size: 12px;
+  color: var(--arora-text-muted);
+  margin-top: 2px;
+}
+
+.arora-approval-metadata {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.1);
+  padding: 10px;
+  border-radius: var(--arora-radius-sm);
+  font-size: 12px;
+}
+
+.arora-approval-meta-label {
+  color: var(--arora-text-dark);
+}
+
+.arora-approval-meta-value {
+  font-weight: 600;
+}
+
+.arora-approval-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.arora-approval-actions button {
+  flex: 1;
+}
+
+/* Detail Panels */
+.arora-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.arora-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.arora-detail-label {
+  font-size: 12px;
+  color: var(--arora-text-muted);
+}
+
+.arora-detail-value {
+  font-size: 14px;
+  font-weight: 600;
+}
