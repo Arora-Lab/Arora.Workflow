@@ -24,7 +24,7 @@ We will design these features as reusable **capabilities** within the C# core ra
 
 We will build the foundational diagnostics, layout engines, and export utilities.
 
-#### [NEW] [IWorkflowLayoutEngine.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow/Tooling/Layout/IWorkflowLayoutEngine.cs)
+#### [NEW] IWorkflowLayoutEngine.cs
 - Defines the layout engine contract:
   ```csharp
   public interface IWorkflowLayoutEngine
@@ -33,7 +33,7 @@ We will build the foundational diagnostics, layout engines, and export utilities
   }
   ```
 
-#### [NEW] [LayoutModels.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow/Tooling/Layout/LayoutModels.cs)
+#### [NEW] LayoutModels.cs
 - Declares the structured coordinates layout result:
   ```csharp
   public record NodeLayout(string Name, string Type, double X, double Y, double Width, double Height);
@@ -42,13 +42,13 @@ We will build the foundational diagnostics, layout engines, and export utilities
   public record WorkflowLayout(List<NodeLayout> Nodes, List<ConnectionLayout> Connections);
   ```
 
-#### [NEW] [LayeredLayoutEngine.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow/Tooling/Layout/LayeredLayoutEngine.cs)
+#### [NEW] LayeredLayoutEngine.cs
 - Default implementation of `IWorkflowLayoutEngine` using a BFS level-layering layout:
   - Groups nodes by hierarchy depth.
   - Spreads layers vertically ($Y$) and nodes horizontally ($X$).
   - Calculates link paths and sets control points for connection arrows.
 
-#### [NEW] [WorkflowDiagnosticsEngine.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow/Tooling/Diagnostics/WorkflowDiagnosticsEngine.cs)
+#### [NEW] WorkflowDiagnosticsEngine.cs
 - Roslyn-style diagnostic engine parsing the `WorkflowGraph`.
 - Checks rules:
   - `AW_001_CYCLES`: Cycle detection (DFS back-edge checker).
@@ -58,20 +58,20 @@ We will build the foundational diagnostics, layout engines, and export utilities
   - `AW_005_RESERVED_NAMES`: Warns if custom nodes use names reserved by the engine.
 - Returns list of `WorkflowDiagnostic` records (ID, Severity, Message, Suggestion).
 
-#### [NEW] [MermaidExporter.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow/Tooling/Export/MermaidExporter.cs)
+#### [NEW] MermaidExporter.cs
 - Generates Mermaid syntax from a `WorkflowGraph` (supports both Flowchart `graph TD` and Sequence Diagrams).
 
 ### 2. Management API & Server Additions (`Arora.Workflow.Management` & `AspNetCore`)
 
 We will extend the query services and register endpoints to expose the new visualizer data.
 
-#### [MODIFY] [IWorkflowQueryService.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow.Management/IWorkflowQueryService.cs)
+#### [MODIFY] IWorkflowQueryService.cs
 - Add `GetDefinitionDetailsAsync(Guid definitionId)` returning definition metadata, diagnostics, layout coordinates, and Mermaid representations.
 
-#### [MODIFY] [EfCoreWorkflowQueryService.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow.EntityFramework/Queries/EfCoreWorkflowQueryService.cs)
+#### [MODIFY] EfCoreWorkflowQueryService.cs
 - Implement `GetDefinitionDetailsAsync` by retrieving definition JSON, running layout engine computation, and returning diagnostic reports.
 
-#### [MODIFY] [AroraWorkflowApiExtensions.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow.AspNetCore/AroraWorkflowApiExtensions.cs)
+#### [MODIFY] AroraWorkflowApiExtensions.cs
 - Map new endpoint:
   - `GET /arora/api/v1/definitions/{id}` - Returns full diagnostic and layout details.
 
@@ -79,21 +79,21 @@ We will extend the query services and register endpoints to expose the new visua
 
 We will update the hooks and add pure-SVG render components.
 
-#### [NEW] [useWorkflowDefinitionDetails.ts](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/frontend/packages/workflow-react/src/hooks/useWorkflowDefinitionDetails.ts)
+#### [NEW] useWorkflowDefinitionDetails.ts
 - Fetches full definition metadata and computed layout from `/arora/api/v1/definitions/{id}`.
 
-#### [NEW] [WorkflowVisualizer.tsx](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/frontend/packages/workflow-react/src/components/WorkflowVisualizer.tsx)
+#### [NEW] WorkflowVisualizer.tsx
 - Renders computed coordinates inside a clean, scalable `<svg>` canvas.
 - Features:
   - Hover highlights and click selection events.
   - Custom zoom & pan handlers.
   - Styling tokens mapping layout node colors (e.g. running state, completed nodes, pending approvals).
 
-#### [MODIFY] [InstanceDetailsView.tsx](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/frontend/packages/workflow-react/src/components/InstanceDetailsView.tsx)
+#### [MODIFY] InstanceDetailsView.tsx
 - Render the `WorkflowVisualizer` directly above the instance properties panel.
 - Highlights the `currentState` node dynamically.
 
-#### [MODIFY] [WorkflowDashboard.tsx](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/frontend/packages/workflow-react/src/components/WorkflowDashboard.tsx)
+#### [MODIFY] WorkflowDashboard.tsx
 - Add new tab panels:
   - "Playground": Displays playground simulator.
   - "Analytics": Renders metrics counts and averages.
@@ -103,10 +103,10 @@ We will update the hooks and add pure-SVG render components.
 
 We will build a global CLI tool that integrates with build/CI pipelines.
 
-#### [NEW] [Arora.Workflow.Cli.csproj](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow.Cli/Arora.Workflow.Cli.csproj)
+#### [NEW] Arora.Workflow.Cli.csproj
 - Console project compiling into `arora` command tool.
 
-#### [NEW] [Program.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow.Cli/Program.cs)
+#### [NEW] Program.cs
 - Entrypoint parsing commands (using `System.CommandLine`):
   - `arora workflow lint <path-to-assembly>`: Runs validation lint rules, outputs formatting list, fails build if errors occur.
   - `arora workflow export <path-to-assembly> --format mermaid`: Outputs Mermaid markdown.

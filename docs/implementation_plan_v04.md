@@ -13,30 +13,30 @@ We will create a separate, optional package (`Arora.Workflow.BackgroundProcessin
 ### 1. New Project: `Arora.Workflow.BackgroundProcessing`
 Create a new project that contains the hosted services and workers, ensuring that applications only needing request-driven workflows are not forced to reference or run background workers.
 
-#### [NEW] [Arora.Workflow.BackgroundProcessing.csproj](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow.BackgroundProcessing/Arora.Workflow.BackgroundProcessing.csproj)
+#### [NEW] Arora.Workflow.BackgroundProcessing.csproj
 - Class library containing `IHostedService` / `BackgroundService` implementations.
 - References `Arora.Workflow` core.
 
-#### [NEW] [WorkflowBackgroundService.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow.BackgroundProcessing/Hosting/WorkflowBackgroundService.cs)
+#### [NEW] WorkflowBackgroundService.cs
 - The main `BackgroundService` that orchestrates polling loops.
 - Configures separate handlers/loops for different work item types (e.g., executing steps, resuming workflows, processing deadlines) to avoid a monolithic worker class.
 - Implements graceful shutdown: stops claiming work, finishes/abandons current items, releases leases, and propagates the `CancellationToken`.
 
-#### [NEW] [BackgroundProcessingExtensions.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow.BackgroundProcessing/Extensions/BackgroundProcessingExtensions.cs)
+#### [NEW] BackgroundProcessingExtensions.cs
 - Exposes `AddBackgroundProcessing(options => ...)` on the `IWorkflowBuilder` to register the worker services.
 - Allows configuring `PollingInterval` and `BatchSize`.
 
 ### 2. Domain & Persistence: Durable Work Items
 Instead of scanning `WorkflowInstances` for anything runnable, the engine will transactionally enqueue explicit durable work items.
 
-#### [NEW] [WorkItem.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow/Domain/Entities/WorkItem.cs)
+#### [NEW] WorkItem.cs
 - Introduce the `WorkItem` entity representing asynchronous intent.
 - **Properties**: `Id`, `TenantId`, `WorkflowInstanceId`, `WorkType` (ExecuteStep, RetryStep, ResumeWorkflow, ProcessDeadline, DispatchEvent), `Status` (Pending, Processing, Completed, DeadLettered), `AvailableAt`, `AttemptCount`, `LockedBy`, `LockedUntil`, `LastError`, `CreatedAt`, `CompletedAt`.
 
-#### [NEW] [IWorkItemRepository.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow/Application/Interfaces/IWorkItemRepository.cs)
+#### [NEW] IWorkItemRepository.cs
 - Interface for creating, polling, claiming (atomic lock), and completing work items.
 
-#### [NEW] [EfCoreWorkItemRepository.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow.EntityFramework/Repositories/EfCoreWorkItemRepository.cs)
+#### [NEW] EfCoreWorkItemRepository.cs
 - Implements `IWorkItemRepository`.
 - **Safe Claiming**: Uses EF Core to perform an atomic UPDATE that sets `Status = Processing`, `LockedBy = [workerId]`, and `LockedUntil = [UtcNow + leaseDuration]` where `Status = Pending` and `AvailableAt <= UtcNow`.
 - **Crash Recovery**: Allows reclaiming items where `LockedUntil < UtcNow`.
@@ -48,7 +48,7 @@ Instead of scanning `WorkflowInstances` for anything runnable, the engine will t
 ### 3. Core Engine Adjustments
 The core engine remains passive but must now generate `WorkItem` records when asynchronous work is required.
 
-#### [MODIFY] [WorkflowEngine.cs](file:///C:/Users/Brian/Documents/Develop/Arora%20Workflow/src/Arora.Workflow/Internal/Engine/WorkflowEngine.cs)
+#### [MODIFY] WorkflowEngine.cs
 - When a workflow is started or transitions, the engine will evaluate if the next step is asynchronous or delayed. If so, it will create a `WorkItem` rather than executing it inline.
 - **Rule**: `await workflowService.StartAsync(...)` remains synchronous up to persistence. It will persist the new state and the `WorkItem`, committing the transaction, and then return. The background worker takes over from there.
 
