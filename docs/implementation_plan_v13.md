@@ -7,29 +7,29 @@ The objective of Phase 13 is to build visual execution debugging and time-travel
 ## User Review Required
 
 > [!IMPORTANT]
-> **API & Architecture Changes**
-> - **In-Memory Concurrency & Counter Recovery**: Domain events are cleared only *after* a successful commit. If saving fails, projected history entities are discarded, the aggregate and counter are reloaded, and history events are re-projected before retrying.
-> - **Shared Visualizer Package**: Creation of a new package `@arora/workflow-visualization` containing the pure snapshot playback derivation engine.
-> - **Nullable NodeId**: `NodeId` remains nullable to allow for step-less events (retry schedules, deadlines, failed notifications).
-> - **EF Core Migrations**: Shift from prototype `EnsureCreated()` to a structured EF Core migration and backfill script.
-> - **Relational Testcontainers**: Integration tests will use Testcontainers (PostgreSQL/xmin or SQL Server/rowversion) to verify concurrency locks.
+> **API, Database & Concurrency Architecture**
+> - **No Silent Repository Retries**: In case of concurrency conflicts, the repository throws a typed `WorkflowConcurrencyException` and does not clear the aggregate's domain events. Retries must be managed at the application command-handler level by opening a new scope, reloading a fresh aggregate, validating business rules, generating new events, and committing.
+> - **Internal Sequence Allocation**: `AllocateHistorySequence` is marked internal.
+> - **Unit of Work Lifecycles**: Sequence mapping and history projection are managed by a `WorkflowCommitCoordinator` during the unit-of-work commit phase, not within the repository.
+> - **Multi-Provider Migrations**: We will implement separate database migration and backfill scripts for SQL Server (using `ROW_NUMBER()`) and PostgreSQL.
+> - **Visualizer Decoupling**: Build the playback logic in a new framework-neutral npm package `@arora/workflow-visualization`.
 
 ---
 
 ## Proposed Changes
 
-### 1. Backend Core & Database (C# Backend)
+### 1. Domain Models & Core Engine (C# Backend)
 
-We will modify the core aggregate, query models, repository event projections, and entity configurations.
+We will modify the core aggregates, configurations, and domain events.
 
 #### [MODIFY] WorkflowInstance.cs
-- Add `HistorySequence` state property:
+- Add `HistorySequence` state property and mark the allocation methods as internal:
   ```csharp
   public long HistorySequence { get; private set; }
 
   internal void SetHistorySequence(long sequence) => HistorySequence = sequence;
 
-  public long AllocateHistorySequence()
+  internal long AllocateHistorySequence()
   {
       HistorySequence++;
       return HistorySequence;
@@ -40,54 +40,54 @@ We will modify the core aggregate, query models, repository event projections, a
 - Emit canonical node IDs directly from the execution engine to avoid guessing target nodes at persistence time:
   - `WorkflowStarted` includes `string InitialNodeId`.
   - `WorkflowTransitioned` includes `string FromNodeId` and `string ToNodeId`.
-  - `WorkflowCancelled` includes `string LastActiveNodeId`.
+  - `WorkflowCancelled` includes `string LastActiveNodeId` and `string? CancelledNodeId` (dedicated terminal cancellation node).
+- State/Node Mapping Invariant: Formalize in `docs/DDD.md` that state names and node IDs map one-to-one as canonical identifiers within the published definition version.
 
 #### [MODIFY] WorkflowHistoryEntity.cs
-- Add new properties representing the expanded table columns:
+- Add new properties representing the expanded database columns:
   ```csharp
   public long Sequence { get; set; }
-  public string? NodeId { get; set; } // Nullable. Not all events map to nodes.
+  public string? NodeId { get; set; } // Nullable. Step-less events use null.
   ```
 
 #### [MODIFY] ApprovalAndHistoryConfigurations.cs
-- Add unique index constraint:
+- Configure unique index constraint on `WorkflowHistoryEntity`:
   ```csharp
   builder.HasIndex(x => new { x.TenantId, x.WorkflowInstanceId, x.Sequence })
       .IsUnique()
       .HasDatabaseName("uq_aw_workflow_history_tenant_instance_sequence");
   ```
 
-#### [MODIFY] EfCoreWorkflowInstanceRepository.cs
-- Re-architect saving sequence numbers under retry/rollback scopes:
-  - Domain events are cleared **only after a successful commit**.
-  - On `SaveChangesAsync` concurrency failure, projected `WorkflowHistoryEntity` entities are discarded/detached from EF tracking.
-  - Re-read the aggregate and latest `HistorySequence` from the database, re-assign sequence numbers, and re-project history entities before executing the retry loop.
-
 ---
 
-### 2. Metadata Sanitization
+### 2. Transaction Coordinator & Concurrency Exceptions
 
-#### [NEW] IWorkflowHistoryMetadataSanitizer.cs
-- Define the interface for metadata sanitization:
+#### [NEW] WorkflowConcurrencyException.cs
+- Implement a typed concurrency exception:
   ```csharp
-  public record WorkflowHistoryMetadataContext(
-      Guid TenantId,
-      Guid WorkflowInstanceId,
-      string EventType,
-      string? StepName);
-
-  public interface IWorkflowHistoryMetadataSanitizer
+  public sealed class WorkflowConcurrencyException : WorkflowException
   {
-      System.Text.Json.JsonElement? Sanitize(
-          IWorkflowEvent domainEvent,
-          WorkflowHistoryMetadataContext context);
+      public WorkflowConcurrencyException(Guid workflowInstanceId)
+          : base(
+              "WORKFLOW_CONCURRENCY_CONFLICT",
+              $"Workflow instance '{workflowInstanceId}' was modified by another operation.")
+      {
+          WorkflowInstanceId = workflowInstanceId;
+      }
+
+      public Guid WorkflowInstanceId { get; }
   }
   ```
-- Create `DefaultWorkflowHistoryMetadataSanitizer` implementing a strict **allowlist**:
-  - Keep: statuses, attempts, approval decisions, elapsed durations.
-  - Redact/Exclude: raw input/output parameter payloads, authorization headers/tokens, exception stack traces.
-  - Enforce limits: maximum serialized metadata size, string length, and nesting depth.
-  - Clone returning values (`sanitizedElement.Clone()`) to prevent JSON document disposal issues.
+
+#### [NEW] WorkflowCommitCoordinator.cs
+- Decouple commit coordination from repositories:
+  - Intercepts pending domain events before saving.
+  - Allocates sequences internally via `AllocateHistorySequence()`.
+  - Runs the allowlist sanitizer to build event metadata.
+  - Generates `WorkflowHistoryEntity` database rows.
+  - Executes transaction commit.
+  - Clears domain events strictly *after* successful database save.
+  - Catches DbException/DbUpdateConcurrencyException and translates it into a `WorkflowConcurrencyException`.
 
 ---
 
@@ -117,28 +117,40 @@ We will modify the core aggregate, query models, repository event projections, a
 
 ---
 
-### 4. Database Migration Plan (EF Core Migrations)
-Establish concrete schema migration script representing:
-1. Add nullable `Sequence` (long) and `NodeId` (string?) columns on the history table.
-2. Add `HistorySequence` (long) to the instance table, defaulting to 0.
-3. Backfill script: For each instance, sort existing rows by `OccurredAt` then `Id` and update `Sequence` with incrementing sequences (1, 2, 3...). Set `HistorySequence` in the instance table to the maximum assigned sequence.
-4. Alter `Sequence` column on the history table to be non-nullable.
-5. Create unique constraint index on `(TenantId, WorkflowInstanceId, Sequence)`.
+### 4. Database Migrations (SQL Server & PostgreSQL)
+Establish separate SQL migration and backfill scripts matching supported providers:
+- **SQL Server**:
+  - Add columns, then backfill sequence:
+    ```sql
+    WITH Backfill AS (
+      SELECT Id, ROW_NUMBER() OVER(PARTITION BY TenantId, WorkflowInstanceId ORDER BY OccurredAt, Id) AS NewSeq
+      FROM aw_workflow_history
+    )
+    UPDATE h
+    SET h.Sequence = b.NewSeq
+    FROM aw_workflow_history h
+    JOIN Backfill b ON h.Id = b.Id;
+    ```
+- **PostgreSQL**:
+  - Implement a corresponding sequence backfill using `row_number() over (PARTITION BY ...)` syntax.
+- Update instance history sequence counters based on maximum historical value found.
 
 ---
 
-### 5. Playback & Core Visualization Logic (`@arora/workflow-visualization`)
+### 5. Playback Core Package (`@arora/workflow-visualization`)
 
-We will place framework-neutral playback logic inside a new dedicated workspace package.
+Build a dedicated, framework-neutral playback package.
 
 #### [NEW] @arora/workflow-visualization/src/snapshotDeriver.ts
-- Create snapshot model interfaces supporting looping states:
+- Declare playback model interfaces supporting loops and node outcomes:
   ```typescript
+  export type WorkflowNodeStatus = "pending" | "completed" | "active" | "failed" | "rejected" | "cancelled";
+
   export interface WorkflowNodeExecution {
     nodeId: string;
     visitCount: number;
     lastSequence: number;
-    status: "completed" | "active" | "failed" | "cancelled";
+    status: WorkflowNodeStatus;
   }
 
   export interface WorkflowConnectionExecution {
@@ -154,6 +166,15 @@ We will place framework-neutral playback logic inside a new dedicated workspace 
     selectedEvent?: WorkflowHistoryItem;
   }
 
+  export class WorkflowHistoryIntegrityError extends Error {
+    constructor(
+      public readonly code: "DUPLICATE_SEQUENCE" | "INVALID_SEQUENCE_ORDER" | "UNKNOWN_NODE" | "UNKNOWN_CONNECTION",
+      message: string
+    ) {
+      super(message);
+    }
+  }
+
   export function deriveExecutionSnapshot(
     layout: WorkflowLayout | null,
     history: WorkflowHistoryItem[],
@@ -161,29 +182,15 @@ We will place framework-neutral playback logic inside a new dedicated workspace 
     currentNodeId?: string
   ): WorkflowExecutionSnapshot;
   ```
-- Playback Resolution Logic:
-  - If `selectedSequence` is `null` (Live mode):
-    - Walk the complete history to compute traversals, marking node visits.
-    - Set the status of `currentNodeId` as `"active"`.
-  - If a sequence is selected (Historical mode):
-    - Walk historical events strictly up to and including `selectedSequence`.
-    - Track node visits and transition counters. The node corresponding to `selectedSequence` is marked `"active"`. All prior visited nodes are `"completed"`.
-    - If the selected event represents a cancellation, mark the target node as `"cancelled"`.
 
 ---
 
-### 6. React UI Components (`@arora/workflow-react`)
+### 6. React Timeline A11y & UI
 
 #### [MODIFY] HistoryTimeline.tsx
-- Render timeline steps as accessible native `<button>` tags (retaining native Space/Enter selection functionality).
-- Implement keyboard navigation for `ArrowUp` and `ArrowDown` keys to move focus.
-- Set `aria-current="step"` on the currently selected historical event row.
-
-#### [MODIFY] InstanceDetailsView.tsx
-- Hold state for `selectedHistoryItem` (defaults to `null` representing Live mode).
-- If selection is active, show the **Historical Mode Alert Banner** (`"Viewing workflow as of event X. [Return to Live]"`).
-- Invoke `deriveExecutionSnapshot` from `@arora/workflow-visualization` and forward computed classes to `<WorkflowVisualizer />`.
-- Render the transition comment, sanitizer metadata, and actor display logs in the details sidebar.
+- Render steps using native `<button>` tags.
+- Manage logical index focus using keyboard ArrowUp/ArrowDown listeners.
+- Render banner indicators (`"Viewing event X of Y. [Return to live state]"`) and manage focus shifts when switching instances.
 
 ---
 
@@ -191,18 +198,13 @@ We will place framework-neutral playback logic inside a new dedicated workspace 
 
 ### Automated Tests
 
-#### Backend integration tests (using SQL Server Testcontainers):
-- **Concurrency Test**: Spawn concurrent scopes updating the same instance. Verify that the concurrency token on the aggregate throws a conflict, discards generated history entities, reloads `HistorySequence`, re-projects the events, and succeeds on retry.
-- **Rollback Test**: Verify that a failed transaction rolls back both the instance `HistorySequence` state counter and history logs.
-- **Unique Index Test**: Verify that database unique constraint throws if duplicate sequences are injected.
-- **Sanitization Test**: Verify that `DefaultWorkflowHistoryMetadataSanitizer` enforces size limits and strips raw exception traces and inputs.
+#### Backend Integration Tests (SQL Server & PostgreSQL Testcontainers):
+- **Concurrency Mutation Test**: Run concurrent operations against the same instance. Verify that one throws `WorkflowConcurrencyException`, aggregate events remain intact on the failed instance, and reloading the aggregate validates the state properly before retry.
+- **Rollback Test**: Verify that a failed transaction persists neither the updated `HistorySequence` nor any projected history rows, does not clear the aggregate's domain events, and that any retry uses a freshly loaded aggregate or explicitly reset tracking state.
+- **Consequential Events**: Multiple events committed in one transaction receive sequential sequences without gaps.
+- **Sanitization Safe Clones**: Verify sanitization allows safe metadata and remains valid after context disposal.
 
-#### Playback Unit Tests (`snapshotDeriver.test.ts`):
-- Loop traversal resolution: Verify correct `visitCount` and `traversalCount` for workflows going through `A -> B -> A`.
-- Live sync: Verify snapshot behavior when live `currentNodeId` is different from the last history row.
-- Cancellation highlight: Verify cancellation nodes are marked `"cancelled"`.
-- Error recovery: Verify playback behavior when sequences have missing elements or duplicate sequence inputs are rejected explicitly.
-
-#### Component & A11y tests:
-- Timeline Keyboard navigation: Triggering Up/Down focus changes.
-- Safe rendering: Verify that comments are rendered strictly as text nodes, protecting against HTML injection.
+#### Playback unit tests:
+- Verify traversal count on cyclic loops (`A -> B -> A`).
+- Verify error codes on duplicate or negative sequence orders.
+- Verify node-less events work cleanly with null node IDs.
