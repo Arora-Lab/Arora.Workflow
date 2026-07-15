@@ -1,48 +1,93 @@
 # Phase 13: Interactive Debugging
 
-The objective of Phase 13 is to build visual execution debugging and time-travel path analysis. When a developer inspects a workflow instance, they can scrub through the history timeline to see exactly how the state moved on the SVG visualizer, including the input parameter metadata, actors, and comment logs at each transition point.
+The objective of Phase 13 is to build visual execution debugging and time-travel path analysis. When a developer inspects a workflow instance, they can scrub through the history timeline to see exactly how the state moved on the SVG visualizer, including the metadata, actors, and comment logs at each transition point.
 
 ---
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **API Schema Modifications**
-> To support timeline scrubbing and transition comments, we will extend the `WorkflowHistoryItem` payload returned by `GET /instances/{id}/history` to include:
-> - `Sequence` (long): Explicit sequential ordering key per instance, replacing time-based sorting.
-> - `FromState` (string)
-> - `ToState` (string)
-> - `NodeId` (string): Stable graph-node identifier.
-> - `ActorId` (string)
-> - `ActorName` (string)
-> - `Comment` (string)
-> - `Metadata` (JSON dictionary): Redacted, structured key-value event properties.
+> **Database Constraints & Schema Migration**
+> - **HistorySequence Property**: Added to `WorkflowInstance` to act as an atomic counter for event sequencing.
+> - **Unique Constraint**: Added `UNIQUE (TenantId, WorkflowInstanceId, Sequence)` on the history table to prevent duplicates under concurrency.
+> - **Metadata Sanitization**: Added the `IWorkflowHistoryMetadataSanitizer` abstraction to explicitly strip out PII, secrets, and large payloads before event logging.
 
 ---
 
 ## Proposed Changes
 
-### 1. SDK Database & Core Extensions (C# Backend)
+### 1. SDK Domain & Database Extensions (C# Backend)
 
-We will modify the core entities, query models, repository event projections, and entity configurations.
+We will modify the core aggregate, configuration tables, and event projection models.
+
+#### [MODIFY] WorkflowInstance.cs
+- Add `HistorySequence` state property:
+  ```csharp
+  public long HistorySequence { get; private set; }
+
+  public long AllocateHistorySequence()
+  {
+      HistorySequence++;
+      return HistorySequence;
+  }
+  ```
+- Update factory initialization to start `HistorySequence = 0`.
+
+#### [MODIFY] WorkflowEvents.cs (Domain Events)
+- Emit canonical node IDs directly from the execution engine to avoid guessing target nodes at persistence time:
+  - `WorkflowStarted` includes `string InitialNodeId`.
+  - `WorkflowTransitioned` includes `string FromNodeId` and `string ToNodeId`.
+  - `WorkflowCancelled` includes `string LastActiveNodeId`.
 
 #### [MODIFY] WorkflowHistoryEntity.cs
-- Add new columns/properties:
+- Add new properties representing the expanded table columns:
   ```csharp
   public long Sequence { get; set; }
   public string? NodeId { get; set; }
   ```
 
 #### [MODIFY] ApprovalAndHistoryConfigurations.cs
-- Configure `Sequence` column and update indexes on `WorkflowHistoryEntity` to use `Sequence` as the primary sorting criteria.
+- Add unique index constraint:
+  ```csharp
+  builder.HasIndex(x => new { x.TenantId, x.WorkflowInstanceId, x.Sequence })
+      .IsUnique()
+      .HasDatabaseName("uq_aw_workflow_history_tenant_instance_sequence");
+  ```
 
 #### [MODIFY] EfCoreWorkflowInstanceRepository.cs
-- In `SaveAsync`, calculate the current maximum sequence number per instance using a DB query.
-- For each projected domain event, increment the sequence counter and persist it sequentially to ensure integrity.
-- Map `NodeId` during event projection:
-  - `WorkflowStarted` → `initialState.Name`
-  - `WorkflowTransitioned` → `e.ToState`
-  - `WorkflowCancelled` → `currentState`
+- During saving operations inside `SaveAsync`, project events into `WorkflowHistoryEntity` using sequence numbers allocated from the instance aggregate:
+  ```csharp
+  foreach (var domainEvent in domainEvents)
+  {
+      var sequence = instance.AllocateHistorySequence();
+      historyEntities.Add(MapToEntity(domainEvent, sequence));
+  }
+  ```
+- Ensure the instance's updated `HistorySequence` is saved concurrently under the database transaction.
+
+---
+
+### 2. Metadata Sanitization
+
+#### [NEW] IWorkflowHistoryMetadataSanitizer.cs
+- Define the interface for metadata sanitization:
+  ```csharp
+  public interface IWorkflowHistoryMetadataSanitizer
+  {
+      System.Text.Json.JsonElement? Sanitize(
+          object domainEvent,
+          Guid tenantId,
+          Guid instanceId);
+  }
+  ```
+- Create a default `DefaultWorkflowHistoryMetadataSanitizer` that:
+  - Preserves safe properties: statuses, attempts, approval decisions, elapsed durations.
+  - Strips/redacts: raw workflow payloads (input/output parameters), exception stack traces, authentication headers.
+- Register it in dependency injection.
+
+---
+
+### 3. API Model Extension
 
 #### [MODIFY] WorkflowHistoryItem.cs
 - Update the API record contract:
@@ -64,52 +109,77 @@ We will modify the core entities, query models, repository event projections, an
   ```
 
 #### [MODIFY] EfCoreWorkflowQueryService.cs
-- Project all extended fields from `WorkflowHistoryEntity` into `WorkflowHistoryItem` models, ordering by `Sequence` ascending.
+- Query `WorkflowHistoryEntity` ordering strictly by `Sequence` ascending. Map all properties into `WorkflowHistoryItem`.
 
 ---
 
-### 2. Frontend Framework-Neutral Core (`@arora/workflow-react`)
+### 4. Database Migration Plan
+Even though `EnsureCreated()` is utilized, we will document the schema migration strategy for backfills:
+1. Add `Sequence` and `NodeId` as nullable columns on the `aw_workflow_history` table.
+2. Backfill existing records: Sort by `OccurredAt` then by `Id` per instance, and update `Sequence` sequentially (1, 2, 3...). Resolve `NodeId` using state maps.
+3. Update `aw_workflow_instances` table to populate the `HistorySequence` column with the max sequence number found in history.
+4. Alter `Sequence` and `NodeId` to be non-nullable.
+5. Create unique constraint index on `(TenantId, WorkflowInstanceId, Sequence)`.
 
-We will implement the pure snapshot playback function in a new module.
+---
 
-#### [NEW] snapshotDeriver.ts
-- Create a pure, unit-testable traversal function:
+### 5. Playback & Core Visualization Logic (`@arora/workflow-client`)
+
+We will place framework-neutral playback logic inside the client core to ensure future Angular reuse.
+
+#### [NEW] client/src/playback/snapshotDeriver.ts
+- Create snapshot model interfaces support looping states:
   ```typescript
+  export interface WorkflowNodeExecution {
+    nodeId: string;
+    visitCount: number;
+    lastSequence: number;
+    status: "completed" | "active" | "failed" | "cancelled";
+  }
+
+  export interface WorkflowConnectionExecution {
+    connectionId: string;
+    traversalCount: number;
+    lastSequence: number;
+  }
+
   export interface WorkflowExecutionSnapshot {
     selectedSequence: number | null;
-    activeNodeId?: string;
-    completedNodeIds: string[];
-    failedNodeIds: string[];
-    traversedConnections: string[];
+    nodes: Record<string, WorkflowNodeExecution>;
+    connections: Record<string, WorkflowConnectionExecution>;
     selectedEvent?: WorkflowHistoryItem;
   }
 
   export function deriveExecutionSnapshot(
     layout: WorkflowLayout | null,
     history: WorkflowHistoryItem[],
-    selectedSequence: number | null
+    selectedSequence: number | null,
+    currentNodeId?: string
   ): WorkflowExecutionSnapshot;
   ```
-- Algorithms:
-  - If `selectedSequence` is `null` (Live mode), compile snapshot based on the current state of the instance.
-  - If a sequence index is selected, walk history items sequentially up to the selected item:
-    - Mark transitions (`FromState` -> `ToState`) as traversed lines.
-    - Set final item's `NodeId` as `activeNodeId`.
-    - Mark intermediate historical nodes as completed.
+- Playback Resolution Logic:
+  - If `selectedSequence` is `null` (Live mode):
+    - Walk the complete history to compute traversals, marking node visits.
+    - Set the status of `currentNodeId` as `"active"`.
+  - If a sequence is selected (Historical mode):
+    - Walk historical events strictly up to and including `selectedSequence`.
+    - Track node visits and transition counters. The node corresponding to `selectedSequence` is marked `"active"`. All prior visited nodes are `"completed"`.
+    - If the selected event represents a cancellation, mark the target node as `"cancelled"`.
 
 ---
 
-### 3. React UI Components (`@arora/workflow-react`)
+### 6. React UI Components (`@arora/workflow-react`)
 
 #### [MODIFY] HistoryTimeline.tsx
-- Add a callback prop `onSelectHistoryItem?: (item: WorkflowHistoryItem | null) => void`.
-- Enhance rows to use `<button>` elements with strict accessibility (`role="button"`, key listener overrides for ArrowUp, ArrowDown, Space, Enter, and clear focus styling).
+- Render timeline steps as accessible native `<button>` tags (retaining native Space/Enter selection functionality).
+- Implement keyboard navigation for `ArrowUp` and `ArrowDown` keys to move logical focus between rows.
+- Set `aria-current="step"` on the currently selected historical event row.
 
 #### [MODIFY] InstanceDetailsView.tsx
-- Hold state for `selectedHistoryItem` (default `null` representing Live mode).
-- If selection is active, render a **Historical Mode Banner** indicating: `"Viewing workflow as of event X of Y. [Return to Live]"`
-- Pass layout and history to `deriveExecutionSnapshot` and forward derived coordinate arrays to `<WorkflowVisualizer />`.
-- Render an **Inspector Panel** showing comments, actor identity details, and structured event metadata.
+- Hold state for `selectedHistoryItem` (defaults to `null` representing Live mode).
+- If selection is active, show the **Historical Mode Alert Banner** (`"Viewing workflow as of event X. [Return to Live]"`).
+- Invoke `deriveExecutionSnapshot` and forward computed layout classes to `<WorkflowVisualizer />`.
+- Render the transition comment, sanitizer metadata, and actor display logs in the details sidebar.
 
 ---
 
@@ -118,18 +188,16 @@ We will implement the pure snapshot playback function in a new module.
 ### Automated Tests
 
 #### Backend unit tests:
-- Verify sequence number projection: starting at 1, strictly sequential, and partitioned correctly by instance.
-- Verify tenant isolation on history queries.
-- Verify metadata column nullability.
+- **Concurrency Test**: Simulate two concurrent writes to the same instance using parallel threads to verify that database optimistic concurrency tokens block double sequence allocations.
+- **Rollback Test**: Verify that a failed transaction rolls back both the instance `HistorySequence` state counter and history logs.
+- **Unique Constraint**: Verify that database writes fail if duplicate sequences are injected.
+- **Sanitization Test**: Verify that `DefaultWorkflowHistoryMetadataSanitizer` strips out custom parameters while logging safe numbers.
 
-#### Frontend unit tests (`snapshotDeriver.test.ts`):
-- Verify path traversal output on:
-  - Initial step (Started).
-  - Normal path transition.
-  - Cycle loops and repeating nodes.
-  - Cancelled/failed steps.
+#### Playback Unit Tests (`snapshotDeriver.test.ts`):
+- Loop traversal resolution: Verify correct `visitCount` and `traversalCount` for workflows going through `A -> B -> A`.
+- Live sync: Verify snapshot behavior when live `currentNodeId` is different from the last history row.
+- Cancellation highlight: Verify cancellation nodes are marked `"cancelled"`.
 
-#### Component testing:
-- Keyboard navigation (arrows/space/enter) on timeline rows.
-- Banner display and "Return to Live" click action.
-- Clearing state when switching instance selection.
+#### Component & A11y tests:
+- Timeline Keyboard navigation: Triggering Up/Down focus changes.
+- Safe rendering: Verify that comments are rendered strictly as text nodes, protecting against HTML injection.
