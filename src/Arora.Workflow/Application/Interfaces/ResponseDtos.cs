@@ -68,6 +68,12 @@ public sealed record WorkflowHistoryEntry
     /// <summary>An optional comment from the actor (for approval decisions and cancellations).</summary>
     public string? Comment { get; init; }
 
+    /// <summary>The sequential index sequence number of this history entry.</summary>
+    public required long Sequence { get; init; }
+
+    /// <summary>The canonical node ID associated with this entry.</summary>
+    public string? NodeId { get; init; }
+
     /// <summary>The UTC time this event occurred.</summary>
     public required DateTimeOffset OccurredAt { get; init; }
 }

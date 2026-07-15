@@ -4,17 +4,17 @@ namespace Arora.Workflow.Domain.Exceptions;
 
 /// <summary>
 /// Thrown when an optimistic concurrency conflict occurs while saving a workflow instance.
-/// This typically happens when two processes attempt to mutate the same instance simultaneously.
 /// </summary>
-public class WorkflowConcurrencyException : Exception
+public sealed class WorkflowConcurrencyException : WorkflowException
 {
-    public WorkflowConcurrencyException(string message)
-        : base(message)
-    {
-    }
+    public Guid WorkflowInstanceId { get; }
 
-    public WorkflowConcurrencyException(string message, Exception innerException)
-        : base(message, innerException)
+    public WorkflowConcurrencyException(Guid workflowInstanceId, Exception? innerException = null)
+        : base(
+            $"Workflow instance '{workflowInstanceId}' was modified by another operation.",
+            "WORKFLOW_CONCURRENCY_CONFLICT",
+            innerException!)
     {
+        WorkflowInstanceId = workflowInstanceId;
     }
 }

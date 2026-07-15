@@ -20,4 +20,6 @@ public sealed record WorkflowStarted(
     int WorkflowVersion,
     string CorrelationId,
     ActorInfo InitiatedBy,
-    DateTimeOffset OccurredAt) : IWorkflowEvent;
+    DateTimeOffset OccurredAt,
+    string InitialState,
+    string InitialNodeId) : IWorkflowEvent;

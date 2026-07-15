@@ -83,7 +83,6 @@ export const WorkflowDashboard: React.FC = () => {
             />
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <InstanceDetailsView instanceId={selectedInstanceId || ''} />
-              {selectedInstanceId && <HistoryTimeline instanceId={selectedInstanceId} />}
             </div>
           </div>
         )}

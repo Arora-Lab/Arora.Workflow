@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="coverlet.collector"  />
     <PackageReference Include="Microsoft.NET.Test.Sdk"  />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Moq"  />
     <PackageReference Include="xunit"  />
     <PackageReference Include="xunit.runner.visualstudio"  />
@@ -22,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Arora.Workflow\Arora.Workflow.csproj" />
     <ProjectReference Include="..\..\src\Arora.Workflow.Testing\Arora.Workflow.Testing.csproj" />
+    <ProjectReference Include="..\..\src\Arora.Workflow.EntityFramework\Arora.Workflow.EntityFramework.csproj" />
   </ItemGroup>
 
 </Project>

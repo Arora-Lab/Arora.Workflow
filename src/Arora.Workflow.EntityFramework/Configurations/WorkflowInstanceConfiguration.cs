@@ -56,6 +56,10 @@ internal sealed class WorkflowInstanceConfiguration
 
         builder.Property(x => x.DeletedAt);
 
+        builder.Property(x => x.HistorySequence)
+            .IsRequired()
+            .HasDefaultValue(0L);
+
         // ── ActorInfo owned value object ─────────────────────────────────────
         // CreatedBy is an ActorInfo record (Id + DisplayName).
         // Stored as two columns in the same table — no join required.

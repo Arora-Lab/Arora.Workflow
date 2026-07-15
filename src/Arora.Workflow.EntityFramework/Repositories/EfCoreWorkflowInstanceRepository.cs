@@ -87,116 +87,141 @@ internal sealed class EfCoreUnitOfWork : IUnitOfWork
     private readonly DbContext _db;
     private readonly ITenantContext _tenantContext;
     private readonly IWorkflowClock _clock;
+    private readonly IWorkflowHistoryMetadataSanitizer _sanitizer;
 
     public EfCoreUnitOfWork(
         DbContextProvider provider,
         ITenantContext tenantContext,
-        IWorkflowClock clock)
+        IWorkflowClock clock,
+        IWorkflowHistoryMetadataSanitizer sanitizer)
     {
         _db = provider.Context;
         _tenantContext = tenantContext;
         _clock = clock;
+        _sanitizer = sanitizer;
     }
 
     /// <inheritdoc />
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         var workflowInstances = _db.ChangeTracker.Entries<WorkflowInstance>()
-            .Where(x => x.Entity.DomainEvents.Any())
+            .Where(x => x.State == EntityState.Added || x.State == EntityState.Modified)
             .Select(x => x.Entity)
             .ToList();
 
-        var domainEvents = workflowInstances.SelectMany(x => x.DomainEvents).ToList();
-
-        // 1. Update Audit Columns
-        UpdateAuditColumns();
-
-        // 2. Project events into History entities attached to the current DbContext.
-        // This ensures the audit trail is saved atomically with the state change.
-        foreach (var domainEvent in domainEvents)
+        // 1. Group by instance to allocate sequence numbers and project history rows
+        foreach (var instance in workflowInstances)
         {
-            // We ensure we only add history entities once per logical operation.
-            // If EF Core execution strategy retries SaveChangesAsync, this block runs again,
-            // but we can check if it's already added to avoid duplicates.
-            // Actually, because we add them to the _db, if they are already in the change tracker
-            // as Added, adding them again would either be a no-op or throw. Let's just 
-            // check if there's already a history record for this exact event instance by its OccurredAt.
-            // Wait, even simpler: just create the entities and check if they are already tracked.
-            
-            WorkflowHistoryEntity? historyEntity = null;
+            var domainEvents = instance.DomainEvents.ToList();
+            if (domainEvents.Count == 0) continue;
 
-            switch (domainEvent)
+            foreach (var domainEvent in domainEvents)
             {
-                case WorkflowStarted e:
-                    historyEntity = new WorkflowHistoryEntity
-                    {
-                        Id = Guid.NewGuid(),
-                        TenantId = Guid.Empty, // TenantId is handled by a tenant context typically, but for now we'll set Empty or resolve it.
-                        WorkflowInstanceId = e.WorkflowInstanceId,
-                        EventType = "Started",
-                        ActorId = e.InitiatedBy?.Id,
-                        ActorName = e.InitiatedBy?.DisplayName,
-                        Comment = JsonSerializer.Serialize(new { e.WorkflowName, e.CorrelationId }),
-                        OccurredAt = e.OccurredAt
-                    };
-                    break;
-                case WorkflowTransitioned e:
-                    historyEntity = new WorkflowHistoryEntity
-                    {
-                        Id = Guid.NewGuid(),
-                        TenantId = Guid.Empty,
-                        WorkflowInstanceId = e.WorkflowInstanceId,
-                        EventType = "Transitioned",
-                        ActorId = e.Actor?.Id,
-                        ActorName = e.Actor?.DisplayName,
-                        FromState = e.FromState,
-                        ToState = e.ToState,
-                        StepName = e.StepName,
-                        OccurredAt = e.OccurredAt
-                    };
-                    break;
-                case WorkflowCancelled e:
-                    historyEntity = new WorkflowHistoryEntity
-                    {
-                        Id = Guid.NewGuid(),
-                        TenantId = Guid.Empty,
-                        WorkflowInstanceId = e.WorkflowInstanceId,
-                        EventType = "Cancelled",
-                        ActorId = e.CancelledBy?.Id,
-                        ActorName = e.CancelledBy?.DisplayName,
-                        Comment = JsonSerializer.Serialize(new { e.Reason }),
-                        OccurredAt = e.OccurredAt
-                    };
-                    break;
-            }
+                var sequence = instance.AllocateHistorySequence();
+                
+                string? stepName = null;
+                if (domainEvent is WorkflowTransitioned transitioned)
+                    stepName = transitioned.StepName;
 
-            if (historyEntity != null)
-            {
-                // Prevent duplicate tracking if EF retries this SaveChangesAsync call.
-                bool alreadyTracked = _db.ChangeTracker.Entries<WorkflowHistoryEntity>()
-                    .Any(x => x.Entity.WorkflowInstanceId == historyEntity.WorkflowInstanceId &&
-                              x.Entity.OccurredAt == historyEntity.OccurredAt &&
-                              x.Entity.EventType == historyEntity.EventType);
+                var context = new WorkflowHistoryMetadataContext(
+                    instance.TenantId,
+                    instance.Id,
+                    domainEvent.GetType().Name,
+                    stepName);
 
-                if (!alreadyTracked)
+                var sanitizedMetadata = _sanitizer.Sanitize(domainEvent, context);
+                var comment = sanitizedMetadata.HasValue ? JsonSerializer.Serialize(sanitizedMetadata.Value) : null;
+
+                string? actorId = null;
+                string? actorName = null;
+                string? fromState = null;
+                string? toState = null;
+                string? nodeId = null;
+
+                switch (domainEvent)
                 {
-                    _db.Set<WorkflowHistoryEntity>().Add(historyEntity);
+                    case WorkflowStarted started:
+                        actorId = started.InitiatedBy?.Id;
+                        actorName = started.InitiatedBy?.DisplayName;
+                        toState = started.InitialState;
+                        nodeId = started.InitialNodeId;
+                        break;
+
+                    case WorkflowTransitioned trans:
+                        actorId = trans.Actor?.Id;
+                        actorName = trans.Actor?.DisplayName;
+                        fromState = trans.FromState;
+                        toState = trans.ToState;
+                        nodeId = trans.ToNodeId;
+                        break;
+
+                    case WorkflowCancelled cancelled:
+                        actorId = cancelled.CancelledBy?.Id;
+                        actorName = cancelled.CancelledBy?.DisplayName;
+                        fromState = cancelled.LastActiveState;
+                        nodeId = cancelled.CancelledNodeId;
+                        break;
+
+                    case WorkflowCompleted completed:
+                        toState = "Completed";
+                        nodeId = "Completed";
+                        break;
+
+                    case WorkflowRejected rejected:
+                        actorId = rejected.RejectedBy?.Id;
+                        actorName = rejected.RejectedBy?.DisplayName;
+                        toState = "Rejected";
+                        nodeId = rejected.RejectedAtStep;
+                        break;
                 }
+
+                var historyEntity = new WorkflowHistoryEntity
+                {
+                    Id = Guid.NewGuid(),
+                    TenantId = instance.TenantId,
+                    WorkflowInstanceId = instance.Id,
+                    EventType = domainEvent.GetType().Name.Replace("Workflow", ""),
+                    FromState = fromState,
+                    ToState = toState,
+                    StepName = stepName,
+                    ActorId = actorId,
+                    ActorName = actorName,
+                    Comment = comment,
+                    Sequence = sequence,
+                    NodeId = nodeId,
+                    OccurredAt = domainEvent.OccurredAt
+                };
+
+                _db.Set<WorkflowHistoryEntity>().Add(historyEntity);
             }
         }
 
-        // We DO NOT clear the domain events here.
-        // WorkflowService will read them to publish MediatR notifications AFTER this commit succeeds.
+        // 2. Update Audit Columns
+        UpdateAuditColumns();
+
         try
         {
             return await _db.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateConcurrencyException ex)
         {
-            throw new Arora.Workflow.Domain.Exceptions.WorkflowConcurrencyException(
-                "A concurrency conflict occurred while saving the workflow instance. " +
-                "The instance was modified by another process.", ex);
+            var firstInstanceId = workflowInstances.FirstOrDefault()?.Id ?? Guid.Empty;
+            throw new Arora.Workflow.Domain.Exceptions.WorkflowConcurrencyException(firstInstanceId, ex);
         }
+        catch (DbUpdateException ex) when (IsHistorySequenceConflict(ex))
+        {
+            var firstInstanceId = workflowInstances.FirstOrDefault()?.Id ?? Guid.Empty;
+            throw new Arora.Workflow.Domain.Exceptions.WorkflowConcurrencyException(firstInstanceId, ex);
+        }
+    }
+
+    private bool IsHistorySequenceConflict(DbUpdateException ex)
+    {
+        var message = ex.InnerException?.Message ?? ex.Message;
+        return message.Contains("uq_aw_workflow_history_tenant_instance_sequence", StringComparison.OrdinalIgnoreCase) ||
+               message.Contains("UNIQUE constraint failed", StringComparison.OrdinalIgnoreCase) ||
+               message.Contains("23505", StringComparison.OrdinalIgnoreCase) || 
+               message.Contains("2627", StringComparison.OrdinalIgnoreCase);
     }
 
     private void UpdateAuditColumns()
@@ -217,7 +242,7 @@ internal sealed class EfCoreUnitOfWork : IUnitOfWork
                 var createdAtProp = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "CreatedAt");
                 if (createdAtProp != null && (createdAtProp.CurrentValue == null || (DateTimeOffset)createdAtProp.CurrentValue == default))
                     createdAtProp.CurrentValue = now;
-            }
         }
     }
+}
 }

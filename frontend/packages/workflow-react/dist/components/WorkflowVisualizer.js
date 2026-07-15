@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorkflowVisualizer = void 0;
 const jsx_runtime_1 = require("react/jsx-runtime");
 const react_1 = require("react");
-const WorkflowVisualizer = ({ layout, activeNodeName, completedNodeNames = [], failedNodeNames = [], }) => {
+const WorkflowVisualizer = ({ layout, activeNodeName, completedNodeNames = [], failedNodeNames = [], nodeStates, completedConnectionIds = [], }) => {
     const [transform, setTransform] = (0, react_1.useState)({ x: 0, y: 0, zoom: 1 });
     const [isDragging, setIsDragging] = (0, react_1.useState)(false);
     const dragStart = (0, react_1.useRef)({ x: 0, y: 0 });
@@ -71,10 +71,11 @@ const WorkflowVisualizer = ({ layout, activeNodeName, completedNodeNames = [], f
                                 const isFromActive = activeNodeName && fromNode.toLowerCase() === activeNodeName.toLowerCase();
                                 const isCompleted = completedNodeNames.some((n) => n.toLowerCase() === fromNode.toLowerCase() &&
                                     completedNodeNames.some((c) => c.toLowerCase() === toNode.toLowerCase()));
+                                const isCompletedConnection = completedConnectionIds?.includes(`${fromNode.toLowerCase()}->${toNode.toLowerCase()}`) ?? false;
                                 let strokeColor = '#475569'; // Default line color
                                 let strokeWidth = '2';
                                 let markerId = 'arrow';
-                                if (isCompleted) {
+                                if (isCompletedConnection || isCompleted) {
                                     strokeColor = '#10b981'; // Green completed transitions
                                     strokeWidth = '2.5';
                                 }
@@ -111,9 +112,12 @@ const WorkflowVisualizer = ({ layout, activeNodeName, completedNodeNames = [], f
                                 const name = node.name || '';
                                 if (!name)
                                     return null;
-                                const isCurrent = activeNodeName && name.toLowerCase() === activeNodeName.toLowerCase();
-                                const isCompleted = completedNodeNames.some((n) => n.toLowerCase() === name.toLowerCase());
-                                const isFailed = failedNodeNames.some((n) => n.toLowerCase() === name.toLowerCase());
+                                const state = nodeStates ? nodeStates[name] : undefined;
+                                const isCurrent = state ? state === 'active' : (activeNodeName && name.toLowerCase() === activeNodeName.toLowerCase());
+                                const isCompleted = state ? state === 'completed' : completedNodeNames.some((n) => n.toLowerCase() === name.toLowerCase());
+                                const isFailed = state ? state === 'failed' : failedNodeNames.some((n) => n.toLowerCase() === name.toLowerCase());
+                                const isCancelled = state ? state === 'cancelled' : false;
+                                const isBypassed = state ? state === 'bypassed' : false;
                                 const x = node.x ?? 0;
                                 const y = node.y ?? 0;
                                 const width = node.width ?? 180;
@@ -126,6 +130,7 @@ const WorkflowVisualizer = ({ layout, activeNodeName, completedNodeNames = [], f
                                 let strokeWidth = '1.5';
                                 let textColor = '#cbd5e1';
                                 let className = '';
+                                let opacity = '1';
                                 if (isCurrent) {
                                     fill = '#1e3a8a';
                                     stroke = '#3b82f6';
@@ -143,9 +148,20 @@ const WorkflowVisualizer = ({ layout, activeNodeName, completedNodeNames = [], f
                                     stroke = '#10b981';
                                     textColor = '#ecfdf5';
                                 }
+                                else if (isCancelled) {
+                                    fill = '#2e2a24';
+                                    stroke = '#f97316';
+                                    textColor = '#ffedd5';
+                                }
+                                else if (isBypassed) {
+                                    fill = '#0f172a';
+                                    stroke = '#334155';
+                                    textColor = '#64748b';
+                                    opacity = '0.4';
+                                }
                                 const type = node.type || 'Step';
                                 const isApproval = type.toLowerCase() === 'approval';
-                                return ((0, jsx_runtime_1.jsxs)("g", { className: className, style: { transition: 'all 0.3s' }, children: [isApproval ? (
+                                return ((0, jsx_runtime_1.jsxs)("g", { className: className, style: { transition: 'all 0.3s', opacity }, children: [isApproval ? (
                                         // Diamond shape for approvals
                                         (0, jsx_runtime_1.jsx)("polygon", { points: `${cx},${y} ${x + width},${cy} ${cx},${y + height} ${x},${cy}`, fill: fill, stroke: stroke, strokeWidth: strokeWidth, style: { filter: isCurrent ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))' : 'none' } })) : (
                                         // Rectangle with rounded corners for steps

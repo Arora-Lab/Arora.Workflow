@@ -43,6 +43,12 @@ public sealed class WorkflowHistoryEntity
     /// <summary>An optional comment from the actor.</summary>
     public string? Comment { get; set; }
 
+    /// <summary>The sequential order sequence for this history event.</summary>
+    public long Sequence { get; set; }
+
+    /// <summary>The canonical node ID associated with this event.</summary>
+    public string? NodeId { get; set; }
+
     /// <summary>The UTC time this event occurred.</summary>
     public DateTimeOffset OccurredAt { get; set; }
 }

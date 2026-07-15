@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useWorkflowInstanceDetails } from '../hooks/useWorkflowInstanceDetails';
 import { useWorkflowDefinitionDetails } from '../hooks/useWorkflowDefinitionDetails';
+import { useWorkflowInstanceHistory } from '../hooks/useWorkflowInstanceHistory';
 import { WorkflowVisualizer } from './WorkflowVisualizer';
+import { HistoryTimeline } from './HistoryTimeline';
+import { derivePlaybackSnapshot } from '@arora/workflow-visualization';
 
 export interface InstanceDetailsViewProps {
   instanceId: string;
@@ -10,6 +13,21 @@ export interface InstanceDetailsViewProps {
 export const InstanceDetailsView: React.FC<InstanceDetailsViewProps> = ({ instanceId }) => {
   const { instance, loading, error } = useWorkflowInstanceDetails(instanceId);
   const { details, loading: detailsLoading } = useWorkflowDefinitionDetails(instance?.workflowDefinitionId ?? null);
+  const { history } = useWorkflowInstanceHistory(instanceId);
+  const [selectedSequence, setSelectedSequence] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (history && history.length > 0) {
+      const maxSeq = Math.max(...history.map((h) => h.sequence ?? 0));
+      setSelectedSequence(maxSeq);
+    } else {
+      setSelectedSequence(null);
+    }
+  }, [history]);
+
+  const playback = (details?.layout && selectedSequence !== null)
+    ? derivePlaybackSnapshot(history as any, selectedSequence, details.layout as any)
+    : null;
 
   if (!instanceId) {
     return (
@@ -117,14 +135,27 @@ export const InstanceDetailsView: React.FC<InstanceDetailsViewProps> = ({ instan
       {details?.layout && (
         <div style={{ marginTop: '20px', marginBottom: '20px' }}>
           <span className="arora-detail-label" style={{ display: 'block', marginBottom: '6px' }}>
-            Workflow Graph Visualizer
+            Workflow Graph Visualizer (Time-Travel Playback)
           </span>
           <div style={{ height: '350px' }}>
             <WorkflowVisualizer
               layout={details.layout}
               activeNodeName={instance.currentState}
+              nodeStates={playback?.nodeStates as any}
+              completedConnectionIds={playback?.completedConnectionIds}
             />
           </div>
+        </div>
+      )}
+
+      {selectedSequence !== null && (
+        <div style={{ marginTop: '20px', marginBottom: '20px' }}>
+          <HistoryTimeline
+            instanceId={instanceId}
+            historyItems={history}
+            selectedSequence={selectedSequence}
+            onSelectSequence={setSelectedSequence}
+          />
         </div>
       )}
 

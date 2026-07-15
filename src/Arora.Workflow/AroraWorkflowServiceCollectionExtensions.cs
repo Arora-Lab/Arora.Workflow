@@ -46,6 +46,7 @@ public static class AroraWorkflowServiceCollectionExtensions
 
         // ── Clock (Singleton — stateless, safe to share) ─────────────────────
         services.AddSingleton<IWorkflowClock, SystemClock>();
+        services.AddSingleton<IWorkflowHistoryMetadataSanitizer, DefaultWorkflowHistoryMetadataSanitizer>();
 
         // ── Step Middleware ──────────────────────────────────────────────────
         // The order of registration dictates execution order:

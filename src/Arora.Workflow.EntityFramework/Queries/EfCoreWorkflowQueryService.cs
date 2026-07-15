@@ -109,23 +109,29 @@ internal sealed class EfCoreWorkflowQueryService : IWorkflowQueryService
 
     public async Task<PagedResult<WorkflowHistoryItem>> GetInstanceHistoryAsync(Guid instanceId, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
     {
-        var query = _db.Set<WorkflowHistory>()
+        var query = _db.Set<Arora.Workflow.EntityFramework.Entities.WorkflowHistoryEntity>()
             .AsNoTracking()
             .Where(x => x.WorkflowInstanceId == instanceId);
 
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
-            .OrderBy(x => x.Timestamp)
+            .OrderBy(x => x.Sequence)
+            .ThenBy(x => x.OccurredAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(x => new WorkflowHistoryItem(
                 x.Id,
                 x.WorkflowInstanceId,
-                null, // StepName doesn't exist on WorkflowHistory
-                x.Action,
-                x.Timestamp,
-                x.Actor != null ? x.Actor.DisplayName : null)) // Assume DisplayName exists on ActorInfo
+                x.StepName,
+                x.EventType,
+                x.OccurredAt,
+                x.ActorName,
+                x.Sequence,
+                x.NodeId,
+                x.FromState,
+                x.ToState,
+                x.Comment))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<WorkflowHistoryItem>(items, totalCount, page, pageSize);

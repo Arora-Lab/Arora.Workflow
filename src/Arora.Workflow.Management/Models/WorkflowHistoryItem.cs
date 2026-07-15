@@ -11,4 +11,9 @@ public record WorkflowHistoryItem(
     string? StepName,
     string Action,
     DateTimeOffset Timestamp,
-    string? Actor);
+    string? Actor,
+    long Sequence,
+    string? NodeId,
+    string? FromState,
+    string? ToState,
+    string? Comment);

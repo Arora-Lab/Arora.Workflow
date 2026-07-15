@@ -5,6 +5,8 @@ interface WorkflowVisualizerProps {
     activeNodeName?: string | null;
     completedNodeNames?: string[];
     failedNodeNames?: string[];
+    nodeStates?: Record<string, 'active' | 'completed' | 'future' | 'bypassed' | 'cancelled' | 'failed'>;
+    completedConnectionIds?: string[];
 }
 export declare const WorkflowVisualizer: React.FC<WorkflowVisualizerProps>;
 export {};

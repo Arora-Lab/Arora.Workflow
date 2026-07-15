@@ -95,6 +95,17 @@ public sealed class WorkflowInstance
     /// <summary>When this instance was soft deleted.</summary>
     public DateTimeOffset? DeletedAt { get; private set; }
 
+    /// <summary>The sequential history counter for this workflow instance.</summary>
+    public long HistorySequence { get; private set; }
+
+    internal void SetHistorySequence(long sequence) => HistorySequence = sequence;
+
+    internal long AllocateHistorySequence()
+    {
+        HistorySequence++;
+        return HistorySequence;
+    }
+
     // -------------------------------------------------------------------------
     // Domain events — collected, not published. The engine reads and clears
     // this list after the database commit. Handlers are invoked outside the
@@ -173,7 +184,9 @@ public sealed class WorkflowInstance
             definitionVersion,
             correlationId,
             initiatedBy,
-            clock));
+            clock,
+            initialState.Name,
+            initialState.Name));
 
         return instance;
     }
@@ -223,7 +236,7 @@ public sealed class WorkflowInstance
             CompletedAt = clock;
 
         _domainEvents.Add(new WorkflowTransitioned(
-            Id, fromState, toState.Name, stepName, actor, clock));
+            Id, fromState, toState.Name, fromState, toState.Name, stepName, actor, clock));
     }
 
     /// <summary>
@@ -245,10 +258,10 @@ public sealed class WorkflowInstance
         ModifiedAt   = clock;
 
         _domainEvents.Add(new WorkflowTransitioned(
-            Id, fromState, "Cancelled", null, cancelledBy, clock));
+            Id, fromState, "Cancelled", fromState, "Cancelled", null, cancelledBy, clock));
 
         _domainEvents.Add(new WorkflowCancelled(
-            Id, WorkflowName, CorrelationId, reason, cancelledBy, clock));
+            Id, WorkflowName, CorrelationId, reason, cancelledBy, clock, fromState, fromState, "Cancelled"));
     }
 
     // -------------------------------------------------------------------------

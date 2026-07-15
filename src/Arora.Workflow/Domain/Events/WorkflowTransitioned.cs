@@ -22,6 +22,8 @@ public sealed record WorkflowTransitioned(
     Guid WorkflowInstanceId,
     string FromState,
     string ToState,
+    string FromNodeId,
+    string ToNodeId,
     string? StepName,
     ActorInfo? Actor,
     DateTimeOffset OccurredAt) : IWorkflowEvent;

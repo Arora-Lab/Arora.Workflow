@@ -52,4 +52,7 @@ public sealed record WorkflowCancelled(
     string CorrelationId,
     string Reason,
     ActorInfo CancelledBy,
-    DateTimeOffset OccurredAt) : IWorkflowEvent;
+    DateTimeOffset OccurredAt,
+    string LastActiveState,
+    string LastActiveNodeId,
+    string? CancelledNodeId) : IWorkflowEvent;

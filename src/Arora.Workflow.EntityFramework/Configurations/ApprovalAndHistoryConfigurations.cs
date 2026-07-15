@@ -106,9 +106,17 @@ internal sealed class WorkflowHistoryConfiguration
         builder.Property(x => x.ActorId).HasMaxLength(500);
         builder.Property(x => x.ActorName).HasMaxLength(500);
         builder.Property(x => x.Comment).HasMaxLength(4000);
+        
+        builder.Property(x => x.Sequence).IsRequired();
+        builder.Property(x => x.NodeId).HasMaxLength(200);
 
         // History is always queried by instance, ordered by time
         builder.HasIndex(x => new { x.TenantId, x.WorkflowInstanceId, x.OccurredAt })
             .HasDatabaseName("ix_aw_workflow_history_tenant_instance_time");
+
+        // Unique sequence per instance per tenant
+        builder.HasIndex(x => new { x.TenantId, x.WorkflowInstanceId, x.Sequence })
+            .IsUnique()
+            .HasDatabaseName("uq_aw_workflow_history_tenant_instance_sequence");
     }
 }

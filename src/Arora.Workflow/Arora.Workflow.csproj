@@ -17,6 +17,7 @@
     <InternalsVisibleTo Include="Arora.Workflow.Testing" />
     <InternalsVisibleTo Include="Arora.Workflow.UnitTests" />
     <InternalsVisibleTo Include="Arora.Workflow.IntegrationTests" />
+    <InternalsVisibleTo Include="Arora.Workflow.EntityFramework" />
   </ItemGroup>
 
 </Project>

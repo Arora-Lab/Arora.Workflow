@@ -6,6 +6,8 @@ interface WorkflowVisualizerProps {
   activeNodeName?: string | null;
   completedNodeNames?: string[];
   failedNodeNames?: string[];
+  nodeStates?: Record<string, 'active' | 'completed' | 'future' | 'bypassed' | 'cancelled' | 'failed'>;
+  completedConnectionIds?: string[];
 }
 
 export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({
@@ -13,6 +15,8 @@ export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({
   activeNodeName,
   completedNodeNames = [],
   failedNodeNames = [],
+  nodeStates,
+  completedConnectionIds = [],
 }) => {
   const [transform, setTransform] = useState({ x: 0, y: 0, zoom: 1 });
   const [isDragging, setIsDragging] = useState(false);
@@ -143,12 +147,13 @@ export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({
               (n) => n.toLowerCase() === fromNode.toLowerCase() && 
                      completedNodeNames.some((c) => c.toLowerCase() === toNode.toLowerCase())
             );
+            const isCompletedConnection = completedConnectionIds?.includes(`${fromNode.toLowerCase()}->${toNode.toLowerCase()}`) ?? false;
 
             let strokeColor = '#475569'; // Default line color
             let strokeWidth = '2';
             let markerId = 'arrow';
 
-            if (isCompleted) {
+            if (isCompletedConnection || isCompleted) {
               strokeColor = '#10b981'; // Green completed transitions
               strokeWidth = '2.5';
             } else if (isFromActive) {
@@ -214,9 +219,12 @@ export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({
             const name = node.name || '';
             if (!name) return null;
 
-            const isCurrent = activeNodeName && name.toLowerCase() === activeNodeName.toLowerCase();
-            const isCompleted = completedNodeNames.some((n) => n.toLowerCase() === name.toLowerCase());
-            const isFailed = failedNodeNames.some((n) => n.toLowerCase() === name.toLowerCase());
+            const state = nodeStates ? nodeStates[name] : undefined;
+            const isCurrent = state ? state === 'active' : (activeNodeName && name.toLowerCase() === activeNodeName.toLowerCase());
+            const isCompleted = state ? state === 'completed' : completedNodeNames.some((n) => n.toLowerCase() === name.toLowerCase());
+            const isFailed = state ? state === 'failed' : failedNodeNames.some((n) => n.toLowerCase() === name.toLowerCase());
+            const isCancelled = state ? state === 'cancelled' : false;
+            const isBypassed = state ? state === 'bypassed' : false;
 
             const x = node.x ?? 0;
             const y = node.y ?? 0;
@@ -232,6 +240,7 @@ export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({
             let strokeWidth = '1.5';
             let textColor = '#cbd5e1';
             let className = '';
+            let opacity = '1';
 
             if (isCurrent) {
               fill = '#1e3a8a';
@@ -247,13 +256,22 @@ export const WorkflowVisualizer: React.FC<WorkflowVisualizerProps> = ({
               fill = '#064e3b';
               stroke = '#10b981';
               textColor = '#ecfdf5';
+            } else if (isCancelled) {
+              fill = '#2e2a24';
+              stroke = '#f97316';
+              textColor = '#ffedd5';
+            } else if (isBypassed) {
+              fill = '#0f172a';
+              stroke = '#334155';
+              textColor = '#64748b';
+              opacity = '0.4';
             }
 
             const type = node.type || 'Step';
             const isApproval = type.toLowerCase() === 'approval';
 
             return (
-              <g key={`node-${name}`} className={className} style={{ transition: 'all 0.3s' }}>
+              <g key={`node-${name}`} className={className} style={{ transition: 'all 0.3s', opacity }}>
                 {isApproval ? (
                   // Diamond shape for approvals
                   <polygon

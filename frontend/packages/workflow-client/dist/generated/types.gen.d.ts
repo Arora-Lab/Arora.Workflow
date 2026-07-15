@@ -63,6 +63,11 @@ export type WorkflowHistoryItem = {
     action?: string | null;
     timestamp?: string;
     actor?: string | null;
+    sequence?: number;
+    nodeId?: string | null;
+    fromState?: string | null;
+    toState?: string | null;
+    comment?: string | null;
 };
 export type WorkflowHistoryItemPagedResult = {
     items?: Array<WorkflowHistoryItem> | null;
