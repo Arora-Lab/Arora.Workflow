@@ -60,17 +60,20 @@ export const DefinitionList: React.FC<DefinitionListProps> = ({
           </thead>
           <tbody>
             {definitions.map((def) => {
-              const isActive = def.id === selectedDefinitionId;
+              const defId = def.id || '';
+              if (!defId) return null;
+
+              const isActive = defId === selectedDefinitionId;
               return (
                 <tr
-                  key={def.id}
-                  onClick={() => onSelectDefinition?.(def.id)}
+                  key={defId}
+                  onClick={() => onSelectDefinition?.(defId)}
                   style={isActive ? { backgroundColor: 'var(--arora-primary-light)' } : undefined}
                 >
-                  <td style={{ fontWeight: '600' }}>{def.name}</td>
+                  <td style={{ fontWeight: '600' }}>{def.name || 'Unnamed'}</td>
                   <td>v{def.version}</td>
                   <td>{def.stepCount}</td>
-                  <td>{new Date(def.createdAt).toLocaleDateString()}</td>
+                  <td>{def.createdAt ? new Date(def.createdAt).toLocaleDateString() : ''}</td>
                 </tr>
               );
             })}

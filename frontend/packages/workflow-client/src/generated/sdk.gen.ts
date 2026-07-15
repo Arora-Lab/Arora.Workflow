@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetApiApprovalsPendingByUserData, GetApiApprovalsPendingByUserResponses, GetApiInvoicesByIdHistoryData, GetApiInvoicesByIdHistoryResponses, GetApiInvoicesByIdStatusData, GetApiInvoicesByIdStatusResponses, GetWorkflowInstanceData, GetWorkflowInstanceErrors, GetWorkflowInstanceHistoryData, GetWorkflowInstanceHistoryResponses, GetWorkflowInstanceResponses, ListWorkflowDefinitionsData, ListWorkflowDefinitionsResponses, ListWorkflowInstancesData, ListWorkflowInstancesResponses, PostApiApprovalsByIdApproveData, PostApiApprovalsByIdApproveResponses, PostApiApprovalsByIdRejectData, PostApiApprovalsByIdRejectResponses, PostApiInvoicesData, PostApiInvoicesResponses } from './types.gen';
+import type { GetApiApprovalsPendingByUserData, GetApiApprovalsPendingByUserResponses, GetApiInvoicesByIdHistoryData, GetApiInvoicesByIdHistoryResponses, GetApiInvoicesByIdStatusData, GetApiInvoicesByIdStatusResponses, GetWorkflowDefinitionDetailsData, GetWorkflowDefinitionDetailsErrors, GetWorkflowDefinitionDetailsResponses, GetWorkflowInstanceData, GetWorkflowInstanceErrors, GetWorkflowInstanceHistoryData, GetWorkflowInstanceHistoryResponses, GetWorkflowInstanceResponses, ListWorkflowDefinitionsData, ListWorkflowDefinitionsResponses, ListWorkflowInstancesData, ListWorkflowInstancesResponses, PostApiApprovalsByIdApproveData, PostApiApprovalsByIdApproveResponses, PostApiApprovalsByIdRejectData, PostApiApprovalsByIdRejectResponses, PostApiInvoicesData, PostApiInvoicesResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -38,6 +38,8 @@ export const postApiApprovalsByIdApprove = <ThrowOnError extends boolean = false
 export const postApiApprovalsByIdReject = <ThrowOnError extends boolean = false>(options: Options<PostApiApprovalsByIdRejectData, ThrowOnError>): RequestResult<PostApiApprovalsByIdRejectResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiApprovalsByIdRejectResponses, unknown, ThrowOnError>({ url: '/api/approvals/{id}/reject', ...options });
 
 export const listWorkflowDefinitions = <ThrowOnError extends boolean = false>(options?: Options<ListWorkflowDefinitionsData, ThrowOnError>): RequestResult<ListWorkflowDefinitionsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListWorkflowDefinitionsResponses, unknown, ThrowOnError>({ url: '/arora/api/v1/definitions', ...options });
+
+export const getWorkflowDefinitionDetails = <ThrowOnError extends boolean = false>(options: Options<GetWorkflowDefinitionDetailsData, ThrowOnError>): RequestResult<GetWorkflowDefinitionDetailsResponses, GetWorkflowDefinitionDetailsErrors, ThrowOnError> => (options.client ?? client).get<GetWorkflowDefinitionDetailsResponses, GetWorkflowDefinitionDetailsErrors, ThrowOnError>({ url: '/arora/api/v1/definitions/{id}', ...options });
 
 export const listWorkflowInstances = <ThrowOnError extends boolean = false>(options?: Options<ListWorkflowInstancesData, ThrowOnError>): RequestResult<ListWorkflowInstancesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListWorkflowInstancesResponses, unknown, ThrowOnError>({ url: '/arora/api/v1/instances', ...options });
 

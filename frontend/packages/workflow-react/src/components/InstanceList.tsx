@@ -142,27 +142,35 @@ export const InstanceList: React.FC<InstanceListProps> = ({
               </thead>
               <tbody>
                 {instances.map((inst) => {
-                  const isActive = inst.id === selectedInstanceId;
+                  const instId = inst.id || '';
+                  if (!instId) return null;
+
+                  const isActive = instId === selectedInstanceId;
+                  const status = inst.status || 'Unknown';
+                  const currentState = inst.currentState || 'None';
+                  const createdAt = inst.createdAt || '';
+                  const modifiedAt = inst.modifiedAt || null;
+
                   return (
                     <tr
-                      key={inst.id}
-                      onClick={() => onSelectInstance?.(inst.id)}
+                      key={instId}
+                      onClick={() => onSelectInstance?.(instId)}
                       style={isActive ? { backgroundColor: 'var(--arora-primary-light)' } : undefined}
                     >
                       <td style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: 'bold' }}>
-                        {inst.id.substring(0, 8)}...
+                        {instId.substring(0, 8)}...
                       </td>
                       <td>v{inst.workflowDefinitionVersion}</td>
                       <td>
-                        <span style={{ fontWeight: '600' }}>{inst.currentState}</span>
+                        <span style={{ fontWeight: '600' }}>{currentState}</span>
                       </td>
                       <td>
-                        <span className={`arora-badge ${getStatusBadgeClass(inst.status)}`}>
-                          {inst.status}
+                        <span className={`arora-badge ${getStatusBadgeClass(status)}`}>
+                          {status}
                         </span>
                       </td>
-                      <td>{formatDuration(inst.createdAt, inst.status.toLowerCase() !== 'running' && inst.status.toLowerCase() !== 'pendingapproval' ? inst.modifiedAt : null)}</td>
-                      <td>{new Date(inst.createdAt).toLocaleDateString()}</td>
+                      <td>{formatDuration(createdAt, status.toLowerCase() !== 'running' && status.toLowerCase() !== 'pendingapproval' ? modifiedAt : null)}</td>
+                      <td>{createdAt ? new Date(createdAt).toLocaleDateString() : ''}</td>
                     </tr>
                   );
                 })}

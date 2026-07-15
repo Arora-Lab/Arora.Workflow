@@ -74,14 +74,14 @@ export const HistoryTimeline: React.FC<HistoryTimelineProps> = ({ instanceId }) 
             <div
               className="arora-timeline-node"
               style={{
-                backgroundColor: getNodeColor(item.action),
-                boxShadow: `0 0 8px ${getNodeColor(item.action)}`,
+                backgroundColor: getNodeColor(item.action || ''),
+                boxShadow: `0 0 8px ${getNodeColor(item.action || '')}`,
               }}
             />
             <div className="arora-timeline-content">
               <div className="arora-timeline-header">
                 <span style={{ fontWeight: '700', fontSize: '14px' }}>
-                  {item.action}
+                  {item.action || 'Unknown Action'}
                 </span>
                 {item.stepName && (
                   <span style={{ color: 'var(--arora-text-muted)', fontSize: '13px' }}>
@@ -90,7 +90,7 @@ export const HistoryTimeline: React.FC<HistoryTimelineProps> = ({ instanceId }) 
                 )}
               </div>
               <div className="arora-timeline-time">
-                {new Date(item.timestamp).toLocaleString()}
+                {item.timestamp ? new Date(item.timestamp).toLocaleString() : ''}
                 {item.actor && ` by ${item.actor}`}
               </div>
             </div>

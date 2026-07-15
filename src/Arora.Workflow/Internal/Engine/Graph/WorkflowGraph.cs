@@ -6,7 +6,7 @@ namespace Arora.Workflow.Internal.Engine.Graph;
 /// Represents the deserialized structure of a workflow definition.
 /// Used internally by the engine to evaluate state transitions.
 /// </summary>
-internal class WorkflowGraph
+public class WorkflowGraph
 {
     public string InitialNode { get; set; } = string.Empty;
     public Dictionary<string, WorkflowGraphNode> Nodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);

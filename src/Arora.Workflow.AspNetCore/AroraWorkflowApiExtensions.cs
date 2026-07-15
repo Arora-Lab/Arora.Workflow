@@ -28,6 +28,18 @@ public static class AroraWorkflowApiExtensions
         .Produces<PagedResult<WorkflowDefinitionSummary>>()
         .WithOpenApi();
 
+        group.MapGet("/definitions/{id:guid}", async (
+            Guid id,
+            IWorkflowQueryService queryService) =>
+        {
+            var result = await queryService.GetDefinitionDetailsAsync(id);
+            return result is not null ? Results.Ok(result) : Results.NotFound();
+        })
+        .WithName("getWorkflowDefinitionDetails")
+        .Produces<WorkflowDefinitionDetails>()
+        .Produces(StatusCodes.Status404NotFound)
+        .WithOpenApi();
+
         group.MapGet("/instances", async (
             IWorkflowQueryService queryService,
             [AsParameters] WorkflowInstanceFilter filter) =>

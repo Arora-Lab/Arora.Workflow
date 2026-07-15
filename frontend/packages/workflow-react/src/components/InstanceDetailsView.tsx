@@ -1,5 +1,7 @@
 import React from 'react';
 import { useWorkflowInstanceDetails } from '../hooks/useWorkflowInstanceDetails';
+import { useWorkflowDefinitionDetails } from '../hooks/useWorkflowDefinitionDetails';
+import { WorkflowVisualizer } from './WorkflowVisualizer';
 
 export interface InstanceDetailsViewProps {
   instanceId: string;
@@ -7,6 +9,7 @@ export interface InstanceDetailsViewProps {
 
 export const InstanceDetailsView: React.FC<InstanceDetailsViewProps> = ({ instanceId }) => {
   const { instance, loading, error } = useWorkflowInstanceDetails(instanceId);
+  const { details, loading: detailsLoading } = useWorkflowDefinitionDetails(instance?.workflowDefinitionId ?? null);
 
   if (!instanceId) {
     return (
@@ -64,8 +67,8 @@ export const InstanceDetailsView: React.FC<InstanceDetailsViewProps> = ({ instan
     <div className="arora-card">
       <h3 className="arora-card-title">
         <span>Instance Details</span>
-        <span className={`arora-badge ${getStatusBadgeClass(instance.status)}`}>
-          {instance.status}
+        <span className={`arora-badge ${getStatusBadgeClass(instance.status || '')}`}>
+          {instance.status || 'Unknown'}
         </span>
       </h3>
 
@@ -99,23 +102,37 @@ export const InstanceDetailsView: React.FC<InstanceDetailsViewProps> = ({ instan
         <div className="arora-detail-item">
           <span className="arora-detail-label">Created At</span>
           <span className="arora-detail-value">
-            {new Date(instance.createdAt).toLocaleString()}
+            {instance.createdAt ? new Date(instance.createdAt).toLocaleString() : ''}
           </span>
         </div>
 
         <div className="arora-detail-item">
           <span className="arora-detail-label">Last Modified At</span>
           <span className="arora-detail-value">
-            {new Date(instance.modifiedAt).toLocaleString()}
+            {instance.modifiedAt ? new Date(instance.modifiedAt).toLocaleString() : ''}
           </span>
         </div>
       </div>
+
+      {details?.layout && (
+        <div style={{ marginTop: '20px', marginBottom: '20px' }}>
+          <span className="arora-detail-label" style={{ display: 'block', marginBottom: '6px' }}>
+            Workflow Graph Visualizer
+          </span>
+          <div style={{ height: '350px' }}>
+            <WorkflowVisualizer
+              layout={details.layout}
+              activeNodeName={instance.currentState}
+            />
+          </div>
+        </div>
+      )}
 
       <div style={{ marginTop: '10px' }}>
         <span className="arora-detail-label" style={{ display: 'block', marginBottom: '6px' }}>
           Input Parameters (JSON)
         </span>
-        <pre className="arora-code-panel">{formatJson(instance.inputJson)}</pre>
+        <pre className="arora-code-panel">{formatJson(instance.inputJson ?? null)}</pre>
       </div>
     </div>
   );

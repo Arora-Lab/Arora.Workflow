@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { DefinitionList } from './DefinitionList';
+import { DefinitionDetailsView } from './DefinitionDetailsView';
 import { InstanceList } from './InstanceList';
 import { InstanceDetailsView } from './InstanceDetailsView';
 import { HistoryTimeline } from './HistoryTimeline';
@@ -19,7 +20,6 @@ export const WorkflowDashboard: React.FC = () => {
 
   const handleSelectDefinition = (id: string) => {
     setSelectedDefinitionId(id);
-    setActiveTab('instances');
   };
 
   const toggleTheme = () => {
@@ -89,10 +89,13 @@ export const WorkflowDashboard: React.FC = () => {
         )}
 
         {activeTab === 'definitions' && (
-          <DefinitionList
-            onSelectDefinition={handleSelectDefinition}
-            selectedDefinitionId={selectedDefinitionId || undefined}
-          />
+          <div className="arora-layout-grid">
+            <DefinitionList
+              onSelectDefinition={handleSelectDefinition}
+              selectedDefinitionId={selectedDefinitionId || undefined}
+            />
+            <DefinitionDetailsView definitionId={selectedDefinitionId} />
+          </div>
         )}
 
         {activeTab === 'approvals' && (

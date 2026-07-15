@@ -29,6 +29,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Arora.Workflow.Management",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Arora.Workflow.AspNetCore", "src\Arora.Workflow.AspNetCore\Arora.Workflow.AspNetCore.csproj", "{C7E50CCE-15FF-4930-AB78-388D1258F5B2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Arora.Workflow.Cli", "src\Arora.Workflow.Cli\Arora.Workflow.Cli.csproj", "{9B8CD18A-093D-48E1-8C79-46B6654EB511}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -159,6 +161,18 @@ Global
 		{C7E50CCE-15FF-4930-AB78-388D1258F5B2}.Release|x64.Build.0 = Release|Any CPU
 		{C7E50CCE-15FF-4930-AB78-388D1258F5B2}.Release|x86.ActiveCfg = Release|Any CPU
 		{C7E50CCE-15FF-4930-AB78-388D1258F5B2}.Release|x86.Build.0 = Release|Any CPU
+		{9B8CD18A-093D-48E1-8C79-46B6654EB511}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9B8CD18A-093D-48E1-8C79-46B6654EB511}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9B8CD18A-093D-48E1-8C79-46B6654EB511}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{9B8CD18A-093D-48E1-8C79-46B6654EB511}.Debug|x64.Build.0 = Debug|Any CPU
+		{9B8CD18A-093D-48E1-8C79-46B6654EB511}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{9B8CD18A-093D-48E1-8C79-46B6654EB511}.Debug|x86.Build.0 = Debug|Any CPU
+		{9B8CD18A-093D-48E1-8C79-46B6654EB511}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9B8CD18A-093D-48E1-8C79-46B6654EB511}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9B8CD18A-093D-48E1-8C79-46B6654EB511}.Release|x64.ActiveCfg = Release|Any CPU
+		{9B8CD18A-093D-48E1-8C79-46B6654EB511}.Release|x64.Build.0 = Release|Any CPU
+		{9B8CD18A-093D-48E1-8C79-46B6654EB511}.Release|x86.ActiveCfg = Release|Any CPU
+		{9B8CD18A-093D-48E1-8C79-46B6654EB511}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -174,5 +188,6 @@ Global
 		{7B23100D-55E4-442C-9BED-D4062232F4FA} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{0237932E-A7EE-4D40-92D0-C20AF14619A1} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{C7E50CCE-15FF-4930-AB78-388D1258F5B2} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{9B8CD18A-093D-48E1-8C79-46B6654EB511} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

@@ -130,4 +130,36 @@ internal sealed class EfCoreWorkflowQueryService : IWorkflowQueryService
 
         return new PagedResult<WorkflowHistoryItem>(items, totalCount, page, pageSize);
     }
+
+    public async Task<WorkflowDefinitionDetails?> GetDefinitionDetailsAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var definition = await _db.Set<WorkflowDefinition>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+        if (definition == null) return null;
+
+        var graph = Arora.Workflow.Internal.Engine.Graph.WorkflowGraph.Parse(definition.DefinitionJson);
+        
+        // 1. Calculate Layout
+        var layoutEngine = new Arora.Workflow.Tooling.Layout.LayeredLayoutEngine();
+        var layout = layoutEngine.ComputeLayout(graph);
+
+        // 2. Generate Mermaid diagram
+        var mermaid = Arora.Workflow.Tooling.Export.MermaidExporter.ToFlowchart(graph);
+
+        // 3. Run diagnostics checks
+        var diagnostics = Arora.Workflow.Tooling.Diagnostics.WorkflowDiagnosticsEngine.Analyze(graph);
+
+        return new WorkflowDefinitionDetails(
+            definition.Id,
+            definition.Name,
+            definition.Version,
+            definition.Description,
+            definition.DefinitionJson,
+            definition.CreatedAt,
+            layout,
+            mermaid,
+            diagnostics);
+    }
 }

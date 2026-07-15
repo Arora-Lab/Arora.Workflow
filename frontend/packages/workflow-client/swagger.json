@@ -1,14 +1,9 @@
 {
   "openapi": "3.0.1",
   "info": {
-    "title": "Arora.Workflow.Sample.InvoiceApp | v1",
-    "version": "1.0.0"
+    "title": "Arora.Workflow.Sample.InvoiceApp",
+    "version": "1.0"
   },
-  "servers": [
-    {
-      "url": "http://localhost:5072"
-    }
-  ],
   "paths": {
     "/api/invoices": {
       "post": {
@@ -178,10 +173,44 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PagedResultOfWorkflowDefinitionSummary"
+                  "$ref": "#/components/schemas/WorkflowDefinitionSummaryPagedResult"
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/arora/api/v1/definitions/{id}": {
+      "get": {
+        "tags": [
+          "AroraWorkflow"
+        ],
+        "operationId": "getWorkflowDefinitionDetails",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowDefinitionDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       }
@@ -197,16 +226,14 @@
             "name": "DefinitionId",
             "in": "query",
             "schema": {
-              "type": "string",
-              "default": null
+              "type": "string"
             }
           },
           {
             "name": "Status",
             "in": "query",
             "schema": {
-              "type": "string",
-              "default": null
+              "type": "string"
             }
           },
           {
@@ -234,7 +261,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PagedResultOfWorkflowInstanceSummary"
+                  "$ref": "#/components/schemas/WorkflowInstanceSummaryPagedResult"
                 }
               }
             }
@@ -317,7 +344,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PagedResultOfWorkflowHistoryItem"
+                  "$ref": "#/components/schemas/WorkflowHistoryItemPagedResult"
                 }
               }
             }
@@ -328,121 +355,104 @@
   },
   "components": {
     "schemas": {
-      "InvoiceRequest": {
-        "required": [
-          "invoiceId",
-          "amount",
-          "vendorId"
+      "ConnectionLayout": {
+        "type": "object",
+        "properties": {
+          "fromNode": {
+            "type": "string",
+            "nullable": true
+          },
+          "toNode": {
+            "type": "string",
+            "nullable": true
+          },
+          "condition": {
+            "type": "string",
+            "nullable": true
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LayoutPoint"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DiagnosticSeverity": {
+        "enum": [
+          0,
+          1,
+          2,
+          3
         ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "InvoiceRequest": {
         "type": "object",
         "properties": {
           "invoiceId": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "amount": {
             "type": "number",
             "format": "double"
           },
           "vendorId": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           }
-        }
+        },
+        "additionalProperties": false
       },
-      "PagedResultOfWorkflowDefinitionSummary": {
-        "required": [
-          "items",
-          "totalCount",
-          "page",
-          "pageSize"
-        ],
+      "LayoutPoint": {
         "type": "object",
         "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkflowDefinitionSummary"
-            }
+          "x": {
+            "type": "number",
+            "format": "double"
           },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "page": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "pageSize": {
-            "type": "integer",
-            "format": "int32"
+          "y": {
+            "type": "number",
+            "format": "double"
           }
-        }
+        },
+        "additionalProperties": false
       },
-      "PagedResultOfWorkflowHistoryItem": {
-        "required": [
-          "items",
-          "totalCount",
-          "page",
-          "pageSize"
-        ],
+      "NodeLayout": {
         "type": "object",
         "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkflowHistoryItem"
-            }
+          "name": {
+            "type": "string",
+            "nullable": true
           },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32"
+          "type": {
+            "type": "string",
+            "nullable": true
           },
-          "page": {
-            "type": "integer",
-            "format": "int32"
+          "x": {
+            "type": "number",
+            "format": "double"
           },
-          "pageSize": {
-            "type": "integer",
-            "format": "int32"
+          "y": {
+            "type": "number",
+            "format": "double"
+          },
+          "width": {
+            "type": "number",
+            "format": "double"
+          },
+          "height": {
+            "type": "number",
+            "format": "double"
           }
-        }
+        },
+        "additionalProperties": false
       },
-      "PagedResultOfWorkflowInstanceSummary": {
-        "required": [
-          "items",
-          "totalCount",
-          "page",
-          "pageSize"
-        ],
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorkflowInstanceSummary"
-            }
-          },
-          "totalCount": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "page": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "pageSize": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
-      },
-      "WorkflowDefinitionSummary": {
-        "required": [
-          "id",
-          "name",
-          "version",
-          "stepCount",
-          "createdAt"
-        ],
+      "WorkflowDefinitionDetails": {
         "type": "object",
         "properties": {
           "id": {
@@ -450,7 +460,52 @@
             "format": "uuid"
           },
           "name": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "definitionJson": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "layout": {
+            "$ref": "#/components/schemas/WorkflowLayout"
+          },
+          "mermaid": {
+            "type": "string",
+            "nullable": true
+          },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowDiagnostic"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkflowDefinitionSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
           },
           "version": {
             "type": "integer",
@@ -464,17 +519,60 @@
             "type": "string",
             "format": "date-time"
           }
-        }
+        },
+        "additionalProperties": false
+      },
+      "WorkflowDefinitionSummaryPagedResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowDefinitionSummary"
+            },
+            "nullable": true
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkflowDiagnostic": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "severity": {
+            "$ref": "#/components/schemas/DiagnosticSeverity"
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "nodeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "suggestion": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       },
       "WorkflowHistoryItem": {
-        "required": [
-          "id",
-          "instanceId",
-          "stepName",
-          "action",
-          "timestamp",
-          "actor"
-        ],
         "type": "object",
         "properties": {
           "id": {
@@ -490,7 +588,8 @@
             "nullable": true
           },
           "action": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "timestamp": {
             "type": "string",
@@ -500,19 +599,35 @@
             "type": "string",
             "nullable": true
           }
-        }
+        },
+        "additionalProperties": false
+      },
+      "WorkflowHistoryItemPagedResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowHistoryItem"
+            },
+            "nullable": true
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
       },
       "WorkflowInstanceDetails": {
-        "required": [
-          "id",
-          "workflowDefinitionId",
-          "workflowDefinitionVersion",
-          "status",
-          "currentState",
-          "inputJson",
-          "createdAt",
-          "modifiedAt"
-        ],
         "type": "object",
         "properties": {
           "id": {
@@ -528,10 +643,12 @@
             "format": "int32"
           },
           "status": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "currentState": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "inputJson": {
             "type": "string",
@@ -545,18 +662,10 @@
             "type": "string",
             "format": "date-time"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "WorkflowInstanceSummary": {
-        "required": [
-          "id",
-          "workflowDefinitionId",
-          "workflowDefinitionVersion",
-          "status",
-          "currentState",
-          "createdAt",
-          "modifiedAt"
-        ],
         "type": "object",
         "properties": {
           "id": {
@@ -572,10 +681,12 @@
             "format": "int32"
           },
           "status": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "currentState": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
           "createdAt": {
             "type": "string",
@@ -585,16 +696,54 @@
             "type": "string",
             "format": "date-time"
           }
-        }
+        },
+        "additionalProperties": false
+      },
+      "WorkflowInstanceSummaryPagedResult": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkflowInstanceSummary"
+            },
+            "nullable": true
+          },
+          "totalCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkflowLayout": {
+        "type": "object",
+        "properties": {
+          "nodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NodeLayout"
+            },
+            "nullable": true
+          },
+          "connections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConnectionLayout"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       }
     }
-  },
-  "tags": [
-    {
-      "name": "Arora.Workflow.Sample.InvoiceApp"
-    },
-    {
-      "name": "AroraWorkflow"
-    }
-  ]
+  }
 }

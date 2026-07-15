@@ -15,4 +15,5 @@ public interface IWorkflowQueryService
     Task<PagedResult<WorkflowInstanceSummary>> GetInstancesAsync(WorkflowInstanceFilter filter, CancellationToken cancellationToken = default);
     Task<WorkflowInstanceDetails?> GetInstanceDetailsAsync(Guid instanceId, CancellationToken cancellationToken = default);
     Task<PagedResult<WorkflowHistoryItem>> GetInstanceHistoryAsync(Guid instanceId, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default);
+    Task<WorkflowDefinitionDetails?> GetDefinitionDetailsAsync(Guid id, CancellationToken cancellationToken = default);
 }

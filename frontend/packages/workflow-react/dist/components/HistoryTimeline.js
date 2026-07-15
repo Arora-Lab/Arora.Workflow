@@ -38,8 +38,8 @@ const HistoryTimeline = ({ instanceId }) => {
         }
     };
     return ((0, jsx_runtime_1.jsxs)("div", { className: "arora-card", children: [(0, jsx_runtime_1.jsx)("h3", { className: "arora-card-title", children: "Execution History" }), (0, jsx_runtime_1.jsx)("div", { className: "arora-timeline", children: history.map((item) => ((0, jsx_runtime_1.jsxs)("div", { className: "arora-timeline-item", children: [(0, jsx_runtime_1.jsx)("div", { className: "arora-timeline-node", style: {
-                                backgroundColor: getNodeColor(item.action),
-                                boxShadow: `0 0 8px ${getNodeColor(item.action)}`,
-                            } }), (0, jsx_runtime_1.jsxs)("div", { className: "arora-timeline-content", children: [(0, jsx_runtime_1.jsxs)("div", { className: "arora-timeline-header", children: [(0, jsx_runtime_1.jsx)("span", { style: { fontWeight: '700', fontSize: '14px' }, children: item.action }), item.stepName && ((0, jsx_runtime_1.jsxs)("span", { style: { color: 'var(--arora-text-muted)', fontSize: '13px' }, children: ["at ", (0, jsx_runtime_1.jsx)("strong", { children: item.stepName })] }))] }), (0, jsx_runtime_1.jsxs)("div", { className: "arora-timeline-time", children: [new Date(item.timestamp).toLocaleString(), item.actor && ` by ${item.actor}`] })] })] }, item.id))) })] }));
+                                backgroundColor: getNodeColor(item.action || ''),
+                                boxShadow: `0 0 8px ${getNodeColor(item.action || '')}`,
+                            } }), (0, jsx_runtime_1.jsxs)("div", { className: "arora-timeline-content", children: [(0, jsx_runtime_1.jsxs)("div", { className: "arora-timeline-header", children: [(0, jsx_runtime_1.jsx)("span", { style: { fontWeight: '700', fontSize: '14px' }, children: item.action || 'Unknown Action' }), item.stepName && ((0, jsx_runtime_1.jsxs)("span", { style: { color: 'var(--arora-text-muted)', fontSize: '13px' }, children: ["at ", (0, jsx_runtime_1.jsx)("strong", { children: item.stepName })] }))] }), (0, jsx_runtime_1.jsxs)("div", { className: "arora-timeline-time", children: [item.timestamp ? new Date(item.timestamp).toLocaleString() : '', item.actor && ` by ${item.actor}`] })] })] }, item.id))) })] }));
 };
 exports.HistoryTimeline = HistoryTimeline;

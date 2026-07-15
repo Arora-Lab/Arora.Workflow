@@ -598,3 +598,36 @@
   font-size: 14px;
   font-weight: 600;
 }
+
+/* Visualizer Animations */
+@keyframes arora-node-glow {
+  0% {
+    filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(59, 130, 246, 0.8));
+  }
+  100% {
+    filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.4));
+  }
+}
+
+.arora-node-pulse {
+  animation: arora-node-glow 2s infinite ease-in-out;
+}
+
+@keyframes arora-ping {
+  0% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}
+
+.arora-ping-dot {
+  animation: arora-ping 1.5s infinite ease-in-out;
+}
